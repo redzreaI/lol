@@ -5,23 +5,28 @@ local ModulesManager = {}
 -- URLs dos módulos no GitHub (CONFIGURADO PARA: redzreaI/lol)
 local GITHUB_BASE = "https://raw.githubusercontent.com/redzreaI/lol/refs/heads/main/modules/"
 
--- Função para carregar módulo externo
+-- Funcao para carregar modulo externo
 local function loadModule(moduleName)
     local url = GITHUB_BASE .. moduleName .. ".luau"
+    print("[Labs Hub] Loading module: " .. moduleName)
+    
     local success, result = pcall(function()
         local code = game:HttpGet(url)
         return loadstring(code)()
     end)
     
     if not success then
-        warn("[Labs Hub] Failed to load module: " .. moduleName, result)
+        warn("[Labs Hub] Failed to load module: " .. moduleName .. " | Error: " .. tostring(result))
         return nil
     end
     
+    print("[Labs Hub] Loaded module: " .. moduleName)
     return result
 end
 
--- ===== CARREGAR MÓDULOS EM PARALELO (MUITO MAIS RÁPIDO!) =====
+-- ===== CARREGAR MODULOS EM PARALELO (MUITO MAIS RAPIDO!) =====
+print("[Labs Hub] Starting parallel module loading...")
+
 local modules = {}
 local modulesToLoad = {
     "desync-module",
@@ -44,25 +49,39 @@ for _, moduleName in ipairs(modulesToLoad) do
 end
 
 -- Aguardar TODOS carregarem (com timeout)
-local timeout = 10 -- 10 segundos máximo
+local timeout = 15 -- 15 segundos maximo
 local startTime = tick()
+local loadedCount = 0
+
 while tick() - startTime < timeout do
-    local allLoaded = true
+    loadedCount = 0
     for _, moduleName in ipairs(modulesToLoad) do
-        if not modules[moduleName] then
-            allLoaded = false
-            break
+        if modules[moduleName] then
+            loadedCount = loadedCount + 1
         end
     end
     
-    if allLoaded then
+    if loadedCount == #modulesToLoad then
+        print("[Labs Hub] All modules loaded! (" .. loadedCount .. "/" .. #modulesToLoad .. ")")
         break
     end
     
     task.wait(0.1)
 end
 
--- Atribuir módulos carregados
+-- Mostrar progresso
+if loadedCount < #modulesToLoad then
+    warn("[Labs Hub] Only " .. loadedCount .. "/" .. #modulesToLoad .. " modules loaded after timeout")
+    
+    -- Mostrar quais falharam
+    for _, moduleName in ipairs(modulesToLoad) do
+        if not modules[moduleName] then
+            warn("[Labs Hub] Missing: " .. moduleName)
+        end
+    end
+end
+
+-- Atribuir modulos carregados
 local DesyncModule = modules["desync-module"]
 local XRayModule = modules["x-ray-module"]
 local AutoLaserModule = modules["auto-laser-cape-module"]
@@ -74,9 +93,22 @@ local FloatModule = modules["float-module"]
 local RoofStealModule = modules["roof-steal-module"]
 local OpenBaseButtonsModule = modules["open-base-buttons-module"]
 
--- Verificar se todos os módulos foram carregados
-if not DesyncModule or not XRayModule or not AutoLaserModule or not WebSlingerModule or not ESPModule or not AutoJoinerModule or not FPSDevourModule or not FloatModule or not RoofStealModule or not OpenBaseButtonsModule then
-    error("[Labs Hub] Failed to load one or more modules. Please check GitHub URLs.")
+-- CONTINUAR MESMO COM MODULOS FALTANDO (evitar crash completo)
+local failedModules = {}
+if not DesyncModule then table.insert(failedModules, "desync-module") end
+if not XRayModule then table.insert(failedModules, "x-ray-module") end
+if not AutoLaserModule then table.insert(failedModules, "auto-laser-cape-module") end
+if not WebSlingerModule then table.insert(failedModules, "web-slinger") end
+if not ESPModule then table.insert(failedModules, "ESP-module") end
+if not AutoJoinerModule then table.insert(failedModules, "auto-joiner-module") end
+if not FPSDevourModule then table.insert(failedModules, "fps-devour-module") end
+if not FloatModule then table.insert(failedModules, "float-module") end
+if not RoofStealModule then table.insert(failedModules, "roof-steal-module") end
+if not OpenBaseButtonsModule then table.insert(failedModules, "open-base-buttons-module") end
+
+if #failedModules > 0 then
+    warn("[Labs Hub] Failed modules: " .. table.concat(failedModules, ", "))
+    warn("[Labs Hub] Some features may not work!")
 end
 
 -- Referências globais
