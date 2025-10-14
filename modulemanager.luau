@@ -8,7 +8,6 @@ local GITHUB_BASE = "https://raw.githubusercontent.com/redzreaI/lol/refs/heads/m
 -- Funcao para carregar modulo externo
 local function loadModule(moduleName)
     local url = GITHUB_BASE .. moduleName .. ".luau"
-    print("[Labs Hub] Loading module: " .. moduleName)
     
     local success, result = pcall(function()
         local code = game:HttpGet(url)
@@ -16,17 +15,14 @@ local function loadModule(moduleName)
     end)
     
     if not success then
-        warn("[Labs Hub] Failed to load module: " .. moduleName .. " | Error: " .. tostring(result))
+        warn("[Labs Hub] Failed to load: " .. moduleName)
         return nil
     end
     
-    print("[Labs Hub] Loaded module: " .. moduleName)
     return result
 end
 
--- ===== CARREGAR MODULOS EM PARALELO (MUITO MAIS RAPIDO!) =====
-print("[Labs Hub] Starting parallel module loading...")
-
+-- ===== CARREGAR MODULOS EM PARALELO =====
 local modules = {}
 local modulesToLoad = {
     "desync-module",
@@ -34,22 +30,19 @@ local modulesToLoad = {
     "auto-laser-cape-module",
     "web-slinger",
     "ESP-module",
-    "auto-joiner-module",
     "fps-devour-module",
     "float-module",
     "roof-steal-module",
     "open-base-buttons-module"
 }
 
--- Carregar todos em paralelo usando task.spawn
 for _, moduleName in ipairs(modulesToLoad) do
     task.spawn(function()
         modules[moduleName] = loadModule(moduleName)
     end)
 end
 
--- Aguardar TODOS carregarem (com timeout)
-local timeout = 15 -- 15 segundos maximo
+local timeout = 15
 local startTime = tick()
 local loadedCount = 0
 
@@ -62,18 +55,13 @@ while tick() - startTime < timeout do
     end
     
     if loadedCount == #modulesToLoad then
-        print("[Labs Hub] All modules loaded! (" .. loadedCount .. "/" .. #modulesToLoad .. ")")
         break
     end
     
     task.wait(0.1)
 end
 
--- Mostrar progresso
 if loadedCount < #modulesToLoad then
-    warn("[Labs Hub] Only " .. loadedCount .. "/" .. #modulesToLoad .. " modules loaded after timeout")
-    
-    -- Mostrar quais falharam
     for _, moduleName in ipairs(modulesToLoad) do
         if not modules[moduleName] then
             warn("[Labs Hub] Missing: " .. moduleName)
@@ -81,35 +69,15 @@ if loadedCount < #modulesToLoad then
     end
 end
 
--- Atribuir modulos carregados
 local DesyncModule = modules["desync-module"]
 local XRayModule = modules["x-ray-module"]
 local AutoLaserModule = modules["auto-laser-cape-module"]
 local WebSlingerModule = modules["web-slinger"]
 local ESPModule = modules["ESP-module"]
-local AutoJoinerModule = modules["auto-joiner-module"]
 local FPSDevourModule = modules["fps-devour-module"]
 local FloatModule = modules["float-module"]
 local RoofStealModule = modules["roof-steal-module"]
 local OpenBaseButtonsModule = modules["open-base-buttons-module"]
-
--- CONTINUAR MESMO COM MODULOS FALTANDO (evitar crash completo)
-local failedModules = {}
-if not DesyncModule then table.insert(failedModules, "desync-module") end
-if not XRayModule then table.insert(failedModules, "x-ray-module") end
-if not AutoLaserModule then table.insert(failedModules, "auto-laser-cape-module") end
-if not WebSlingerModule then table.insert(failedModules, "web-slinger") end
-if not ESPModule then table.insert(failedModules, "ESP-module") end
-if not AutoJoinerModule then table.insert(failedModules, "auto-joiner-module") end
-if not FPSDevourModule then table.insert(failedModules, "fps-devour-module") end
-if not FloatModule then table.insert(failedModules, "float-module") end
-if not RoofStealModule then table.insert(failedModules, "roof-steal-module") end
-if not OpenBaseButtonsModule then table.insert(failedModules, "open-base-buttons-module") end
-
-if #failedModules > 0 then
-    warn("[Labs Hub] Failed modules: " .. table.concat(failedModules, ", "))
-    warn("[Labs Hub] Some features may not work!")
-end
 
 -- Referências globais
 local Players = game:GetService("Players")
@@ -156,7 +124,6 @@ ModulesManager.XRay = XRayModule
 ModulesManager.AutoLaser = AutoLaserModule
 ModulesManager.WebSlinger = WebSlingerModule
 ModulesManager.ESP = ESPModule
-ModulesManager.AutoJoiner = AutoJoinerModule
 ModulesManager.FPSDevour = FPSDevourModule
 ModulesManager.Float = FloatModule
 ModulesManager.RoofSteal = RoofStealModule
@@ -213,27 +180,6 @@ end
 -- Função para X-Ray (wrapper)
 function ModulesManager.setBaseInvisible(state)
     XRayModule.setBaseInvisible(state)
-end
-
--- Função para conectar WebSocket (wrapper)
-function ModulesManager.connectWebSocket(wsUrl, methods, key)
-    return AutoJoinerModule.connectWebSocket(wsUrl, lp, methods, key)
-end
-
--- Função para desconectar WebSocket (wrapper)
-function ModulesManager.disconnectWebSocket(methods, key)
-    AutoJoinerModule.disconnectWebSocket(lp, methods, key)
-end
-
--- Função para processar job do WebSocket (wrapper)
-function ModulesManager.processWebSocketJob(jobData, methods, specificBrainrots, avaiblemethods, showBrainrots)
-    AutoJoinerModule.processWebSocketJob(jobData, methods, specificBrainrots, avaiblemethods, showBrainrots, lp)
-end
-
--- Função para rodar Auto Joiner (wrapper)
-function ModulesManager.runAutoJoiner(config)
-    config.lp = lp
-    AutoJoinerModule.run(config)
 end
 
 -- Funções para FPS Devour (wrapper)
