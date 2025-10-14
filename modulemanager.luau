@@ -21,17 +21,58 @@ local function loadModule(moduleName)
     return result
 end
 
--- Carregar todos os módulos
-local DesyncModule = loadModule("desync-module")
-local XRayModule = loadModule("x-ray-module")
-local AutoLaserModule = loadModule("auto-laser-cape-module")
-local WebSlingerModule = loadModule("web-slinger")
-local ESPModule = loadModule("ESP-module")
-local AutoJoinerModule = loadModule("auto-joiner-module")
-local FPSDevourModule = loadModule("fps-devour-module")
-local FloatModule = loadModule("float-module")
-local RoofStealModule = loadModule("roof-steal-module")
-local OpenBaseButtonsModule = loadModule("open-base-buttons-module")
+-- ===== CARREGAR MÓDULOS EM PARALELO (MUITO MAIS RÁPIDO!) =====
+local modules = {}
+local modulesToLoad = {
+    "desync-module",
+    "x-ray-module",
+    "auto-laser-cape-module",
+    "web-slinger",
+    "ESP-module",
+    "auto-joiner-module",
+    "fps-devour-module",
+    "float-module",
+    "roof-steal-module",
+    "open-base-buttons-module"
+}
+
+-- Carregar todos em paralelo usando task.spawn
+for _, moduleName in ipairs(modulesToLoad) do
+    task.spawn(function()
+        modules[moduleName] = loadModule(moduleName)
+    end)
+end
+
+-- Aguardar TODOS carregarem (com timeout)
+local timeout = 10 -- 10 segundos máximo
+local startTime = tick()
+while tick() - startTime < timeout do
+    local allLoaded = true
+    for _, moduleName in ipairs(modulesToLoad) do
+        if not modules[moduleName] then
+            allLoaded = false
+            break
+        end
+    end
+    
+    if allLoaded then
+        break
+    end
+    
+    task.wait(0.1)
+end
+
+-- Atribuir módulos carregados
+local DesyncModule = modules["desync-module"]
+local XRayModule = modules["x-ray-module"]
+local AutoLaserModule = modules["auto-laser-cape-module"]
+local WebSlingerModule = modules["web-slinger"]
+local ESPModule = modules["ESP-module"]
+local AutoJoinerModule = modules["auto-joiner-module"]
+local FPSDevourModule = modules["fps-devour-module"]
+local FloatModule = modules["float-module"]
+local RoofStealModule = modules["roof-steal-module"]
+local OpenBaseButtonsModule = modules["open-base-buttons-module"]
 
 -- Verificar se todos os módulos foram carregados
 if not DesyncModule or not XRayModule or not AutoLaserModule or not WebSlingerModule or not ESPModule or not AutoJoinerModule or not FPSDevourModule or not FloatModule or not RoofStealModule or not OpenBaseButtonsModule then
