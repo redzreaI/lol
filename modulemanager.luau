@@ -2,8 +2,8 @@
 -- Carregado via loadstring do GitHub
 local ModulesManager = {}
 
--- URLs dos módulos no GitHub (ATUALIZE COM SEU REPOSITÓRIO)
-local GITHUB_BASE = "https://raw.githubusercontent.com/SEU_USUARIO/SEU_REPO/main/SCRIPT-MODULES/modules/"
+-- URLs dos módulos no GitHub (CONFIGURADO PARA: redzreaI/lol)
+local GITHUB_BASE = "https://raw.githubusercontent.com/redzreaI/lol/refs/heads/main/modules/"
 
 -- Função para carregar módulo externo
 local function loadModule(moduleName)
