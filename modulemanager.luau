@@ -33,7 +33,7 @@ local modulesToLoad = {
     "fps-devour-module",
     "float-module",
     "roof-steal-module",
-    "open-base-buttons-module"
+    "grapple-hook-module"
 }
 
 for _, moduleName in ipairs(modulesToLoad) do
@@ -77,7 +77,7 @@ local ESPModule = modules["ESP-module"]
 local FPSDevourModule = modules["fps-devour-module"]
 local FloatModule = modules["float-module"]
 local RoofStealModule = modules["roof-steal-module"]
-local OpenBaseButtonsModule = modules["open-base-buttons-module"]
+local GrappleHookModule = modules["grapple-hook-module"]
 
 -- Referências globais
 local Players = game:GetService("Players")
@@ -127,7 +127,7 @@ ModulesManager.ESP = ESPModule
 ModulesManager.FPSDevour = FPSDevourModule
 ModulesManager.Float = FloatModule
 ModulesManager.RoofSteal = RoofStealModule
-ModulesManager.OpenBaseButtons = OpenBaseButtonsModule
+ModulesManager.GrappleHook = GrappleHookModule
 
 -- Funções auxiliares para acessar referências
 function ModulesManager.getCharacter()
@@ -230,20 +230,6 @@ end
 
 function ModulesManager.isRoofStealEnabled()
     return RoofStealModule.isEnabled()
-end
-
--- Funções para Open Base Buttons (wrapper)
-function ModulesManager.createOpenBaseButtons(Labs, activetheme)
-    local playerGui = lp:WaitForChild("PlayerGui")
-    OpenBaseButtonsModule.create(playerGui, Labs, activetheme, lp)
-end
-
-function ModulesManager.removeOpenBaseButtons()
-    OpenBaseButtonsModule.remove()
-end
-
-function ModulesManager.isOpenBaseButtonsEnabled()
-    return OpenBaseButtonsModule.isEnabled()
 end
 
 return ModulesManager
