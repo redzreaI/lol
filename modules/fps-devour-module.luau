@@ -8,6 +8,7 @@ local DevourLoop = false
 local equipLoop = false
 local conn = nil
 local equipConnection = nil
+local lockConnections = {}  -- Armazena conexões de travamento de tools
 
 local function showCompletionLabel()
     local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
@@ -68,6 +69,37 @@ local function showCompletionLabel()
     end)
 end
 
+local function lockTool(item, character)
+    if not item or not item:IsA("Tool") then return end
+    
+    -- Tornar Handle sem massa para melhor performance
+    if item:FindFirstChild("Handle") then
+        item.Handle.Massless = true
+    end
+    
+    -- Monitorar mudanças na tool e forçar ela a ficar no personagem
+    local conn1 = item.Changed:Connect(function(property)
+        if not equipLoop then return end
+        if property == "Parent" and item.Parent ~= character then
+            pcall(function()
+                item.Parent = character
+            end)
+        end
+    end)
+    
+    local conn2 = item:GetPropertyChangedSignal("Parent"):Connect(function()
+        if not equipLoop then return end
+        if item.Parent ~= character then
+            pcall(function()
+                item.Parent = character
+            end)
+        end
+    end)
+    
+    table.insert(lockConnections, conn1)
+    table.insert(lockConnections, conn2)
+end
+
 local function stopEverything(settings)
     DevourLoop = false
     equipLoop = false
@@ -79,6 +111,16 @@ local function stopEverything(settings)
         equipConnection:Disconnect()
         equipConnection = nil
     end
+    
+    -- Desconectar todos os locks de tools
+    for _, lockConn in pairs(lockConnections) do
+        if lockConn then
+            pcall(function()
+                lockConn:Disconnect()
+            end)
+        end
+    end
+    lockConnections = {}
     
     if settings and settings.fpsDevour then
         settings.fpsDevourCooldown = 10
@@ -161,7 +203,7 @@ function FPSDevourModule.startAura(character, backpack, settings, getRequiredRem
     end)
 end
 
--- Método Equip (Slaps)
+-- Método Equip (Slaps) - Baseado no arise.luau
 function FPSDevourModule.startEquip(character, backpack, useItemRemote, updateCharacterRefsFn, settings)
     if equipLoop then return end
     
@@ -174,6 +216,77 @@ function FPSDevourModule.startEquip(character, backpack, useItemRemote, updateCh
     
     updateCharacterRefsFn()
     
+    -- Limpar conexões antigas
+    for _, lockConn in pairs(lockConnections) do
+        if lockConn then
+            pcall(function()
+                lockConn:Disconnect()
+            end)
+        end
+    end
+    lockConnections = {}
+    
+    -- Equipar todos os slaps do Backpack e travá-los
+    local equippedSlaps = {}
+    for _, tool in ipairs(backpack:GetChildren()) do
+        if tool:IsA('Tool') and tool.Name:lower():find("slap") then
+            pcall(function()
+                tool.Parent = character
+                task.wait(0.05)
+                lockTool(tool, character)
+                table.insert(equippedSlaps, tool)
+            end)
+        end
+    end
+    
+    -- Travar slaps já equipados
+    for _, tool in ipairs(character:GetChildren()) do
+        if tool:IsA('Tool') and tool.Name:lower():find("slap") then
+            local alreadyLocked = false
+            for _, equipped in ipairs(equippedSlaps) do
+                if equipped == tool then
+                    alreadyLocked = true
+                    break
+                end
+            end
+            
+            if not alreadyLocked then
+                pcall(function()
+                    lockTool(tool, character)
+                end)
+            end
+        end
+    end
+    
+    -- Monitorar novas tools adicionadas ao Backpack e mover para Character
+    local backpackConn = backpack.ChildAdded:Connect(function(item)
+        if not equipLoop then return end
+        if item:IsA('Tool') and item.Name:lower():find("slap") then
+            task.wait(0.05)
+            if item.Parent == backpack then
+                pcall(function()
+                    item.Parent = character
+                    task.wait(0.05)
+                    lockTool(item, character)
+                end)
+            end
+        end
+    end)
+    table.insert(lockConnections, backpackConn)
+    
+    -- Monitorar novas tools adicionadas ao Character e travá-las
+    local characterConn = character.ChildAdded:Connect(function(item)
+        if not equipLoop then return end
+        if item:IsA('Tool') and item.Name:lower():find("slap") then
+            task.wait(0.05)
+            pcall(function()
+                lockTool(item, character)
+            end)
+        end
+    end)
+    table.insert(lockConnections, characterConn)
+    
+    -- Loop de FireServer no remote
     equipConnection = RunService.RenderStepped:Connect(function()
         if not equipLoop then
             if equipConnection then
@@ -181,27 +294,6 @@ function FPSDevourModule.startEquip(character, backpack, useItemRemote, updateCh
                 equipConnection = nil
             end
             return
-        end
-        
-        if not character or not character.Parent or not backpack or not backpack.Parent then
-            updateCharacterRefsFn()
-            return
-        end
-        
-        for _, tool in ipairs(backpack:GetChildren()) do
-            if tool:IsA('Tool') and tool.Name:lower():find("slap") then
-                pcall(function()
-                    tool.Parent = character
-                end)
-            end
-        end
-        
-        for _, tool in ipairs(character:GetChildren()) do
-            if tool:IsA('Tool') and tool.Name:lower():find("slap") then
-                pcall(function()
-                    tool.Parent = backpack
-                end)
-            end
         end
         
         if useItemRemote and useItemRemote.Parent then
@@ -226,6 +318,16 @@ function FPSDevourModule.stop(settings)
         equipConnection:Disconnect()
         equipConnection = nil
     end
+    
+    -- Desconectar todos os locks de tools
+    for _, lockConn in pairs(lockConnections) do
+        if lockConn then
+            pcall(function()
+                lockConn:Disconnect()
+            end)
+        end
+    end
+    lockConnections = {}
 end
 
 function FPSDevourModule.stopEquip(settings)
@@ -236,6 +338,16 @@ function FPSDevourModule.stopEquip(settings)
         equipConnection:Disconnect()
         equipConnection = nil
     end
+    
+    -- Desconectar todos os locks de tools
+    for _, lockConn in pairs(lockConnections) do
+        if lockConn then
+            pcall(function()
+                lockConn:Disconnect()
+            end)
+        end
+    end
+    lockConnections = {}
 end
 
 return FPSDevourModule
