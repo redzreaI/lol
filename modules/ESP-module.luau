@@ -188,7 +188,7 @@ local function updateESPColors()
     
     -- Atualizar cores dos highlights
     for player, espParts in pairs(playerHighlights) do
-        if espParts and type(espParts) == "table" then
+        if espParts and type(espParts) == "table" and espParts.highlight then
             local color
             if scriptUsers[player.Name] then
                 color = Color3.fromRGB(255, 165, 0)
@@ -196,15 +196,8 @@ local function updateESPColors()
                 color = Color3.fromRGB(0, 255, 255)
             end
             
-            for i, partData in ipairs(espParts) do
-                if partData and partData.visual and partData.visual.Parent then
-                    partData.visual.Color = color
-                    local outline = partData.visual:FindFirstChildOfClass("SelectionBox")
-                    if outline then
-                        outline.Color3 = color
-                    end
-                end
-            end
+            espParts.highlight.FillColor = color
+            espParts.highlight.OutlineColor = color
         end
     end
 end
@@ -294,11 +287,6 @@ local function createPlayerHighlight(player)
                 if playerHighlights[player].folder then
                     playerHighlights[player].folder:Destroy()
                 end
-                for _, part in pairs(playerHighlights[player]) do
-                    if part ~= playerHighlights[player].folder then
-                        part:Destroy()
-                    end
-                end
             else
                 playerHighlights[player]:Destroy()
             end
@@ -313,60 +301,72 @@ local function createPlayerHighlight(player)
         color = Color3.fromRGB(0, 255, 255)
     end
     
-    -- Criar folder para organizar
-    local espFolder = Instance.new("Folder")
+    -- Criar folder para organizar (vai pro Workspace para Highlight funcionar)
+    local espFolder = Instance.new("Model")
     espFolder.Name = "ESP_" .. player.Name
-    espFolder.Parent = CoreGui
+    espFolder.Parent = Workspace
     
     -- Partes do corpo para rastrear
     local parts = {
-        {name = "Head", size = Vector3.new(2, 1, 1)},
-        {name = "Torso", size = Vector3.new(2, 2, 1)},
-        {name = "Left Arm", size = Vector3.new(1, 2, 1)},
-        {name = "Right Arm", size = Vector3.new(1, 2, 1)},
-        {name = "Left Leg", size = Vector3.new(1, 2, 1)},
-        {name = "Right Leg", size = Vector3.new(1, 2, 1)},
-        {name = "UpperTorso", size = Vector3.new(2, 1.5, 1)},
-        {name = "LowerTorso", size = Vector3.new(2, 1, 1)},
-        {name = "LeftUpperArm", size = Vector3.new(1, 1.5, 1)},
-        {name = "LeftLowerArm", size = Vector3.new(1, 1.5, 1)},
-        {name = "RightUpperArm", size = Vector3.new(1, 1.5, 1)},
-        {name = "RightLowerArm", size = Vector3.new(1, 1.5, 1)},
-        {name = "LeftUpperLeg", size = Vector3.new(1, 1.5, 1)},
-        {name = "LeftLowerLeg", size = Vector3.new(1, 1.5, 1)},
-        {name = "RightUpperLeg", size = Vector3.new(1, 1.5, 1)},
-        {name = "RightLowerLeg", size = Vector3.new(1, 1.5, 1)},
+        {name = "Head"},
+        {name = "Torso"},
+        {name = "Left Arm"},
+        {name = "Right Arm"},
+        {name = "Left Leg"},
+        {name = "Right Leg"},
+        {name = "UpperTorso"},
+        {name = "LowerTorso"},
+        {name = "LeftUpperArm"},
+        {name = "LeftLowerArm"},
+        {name = "RightUpperArm"},
+        {name = "RightLowerArm"},
+        {name = "LeftUpperLeg"},
+        {name = "LeftLowerLeg"},
+        {name = "RightUpperLeg"},
+        {name = "RightLowerLeg"},
+        {name = "LeftHand"},
+        {name = "RightHand"},
+        {name = "LeftFoot"},
+        {name = "RightFoot"},
     }
     
-    local espParts = {folder = espFolder}
+    local espParts = {folder = espFolder, parts = {}}
+    local hasValidParts = false
     
     for _, partInfo in ipairs(parts) do
         local bodyPart = character:FindFirstChild(partInfo.name)
         if bodyPart and bodyPart:IsA("BasePart") then
-            -- Criar parte visual própria
+            -- Criar parte invisível que copia a parte do corpo
             local espPart = Instance.new("Part")
             espPart.Name = "ESP_" .. partInfo.name
             espPart.Size = bodyPart.Size
             espPart.CanCollide = false
             espPart.Anchored = true
-            espPart.Material = Enum.Material.Neon
-            espPart.Color = color
-            espPart.Transparency = 0.7
+            espPart.Transparency = 1 -- Invisível, só o Highlight vai aparecer
+            espPart.CastShadow = false
             espPart.Parent = espFolder
             
-            -- Criar outline (caixa ao redor)
-            local outline = Instance.new("SelectionBox")
-            outline.LineThickness = 0.05
-            outline.Color3 = color
-            outline.Transparency = 0
-            outline.Adornee = espPart
-            outline.Parent = espPart
-            
-            -- Guardar referência da parte original
-            espPart:SetAttribute("TargetPart", partInfo.name)
-            
-            table.insert(espParts, {visual = espPart, target = bodyPart})
+            table.insert(espParts.parts, {visual = espPart, target = bodyPart})
+            hasValidParts = true
         end
+    end
+    
+    if hasValidParts then
+        -- Criar Highlight no Model inteiro
+        local highlight = Instance.new("Highlight")
+        highlight.Name = "PlayerESP_Highlight"
+        highlight.Adornee = espFolder
+        highlight.FillColor = color
+        highlight.FillTransparency = 0.5
+        highlight.OutlineColor = color
+        highlight.OutlineTransparency = 0
+        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        highlight.Parent = espFolder
+        
+        espParts.highlight = highlight
+    else
+        espFolder:Destroy()
+        return
     end
     
     playerHighlights[player] = espParts
@@ -469,16 +469,18 @@ function ESPModule.setupLoop(lp)
                         createPlayerHighlight(player)
                     else
                         -- Atualizar posição de cada parte visual
-                        local espParts = playerHighlights[player]
-                        for i, partData in ipairs(espParts) do
-                            if partData and partData.visual and partData.target then
-                                if partData.target.Parent then
-                                    -- Atualizar CFrame para seguir a parte original
-                                    partData.visual.CFrame = partData.target.CFrame
-                                else
-                                    -- Se a parte não existe mais, recriar ESP
-                                    createPlayerHighlight(player)
-                                    break
+                        local espData = playerHighlights[player]
+                        if espData.parts then
+                            for _, partData in ipairs(espData.parts) do
+                                if partData and partData.visual and partData.target then
+                                    if partData.target.Parent then
+                                        -- Atualizar CFrame para seguir a parte original
+                                        partData.visual.CFrame = partData.target.CFrame
+                                    else
+                                        -- Se a parte não existe mais, recriar ESP
+                                        createPlayerHighlight(player)
+                                        break
+                                    end
                                 end
                             end
                         end
