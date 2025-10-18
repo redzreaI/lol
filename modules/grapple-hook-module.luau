@@ -37,9 +37,13 @@ local function charsetup()
         remote = net:WaitForChild("RE/UseItem")
     end
     
-    tool = lp.Backpack:FindFirstChild("Grapple Hook")
+    local backpack = lp:WaitForChild("Backpack")
+    tool = backpack:FindFirstChild("Grapple Hook")
     if tool then
         tool.Parent = character
+        print("[Grapple Hook] Tool equipped! Speed:", speed)
+    else
+        print("[Grapple Hook] Tool NOT found in backpack!")
     end
 end
 
