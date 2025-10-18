@@ -196,9 +196,13 @@ local function updateESPColors()
                 color = Color3.fromRGB(0, 255, 255)
             end
             
-            for _, box in ipairs(espParts) do
-                if box and box.Parent then
-                    box.Color3 = color
+            for i, partData in ipairs(espParts) do
+                if partData and partData.visual and partData.visual.Parent then
+                    partData.visual.Color = color
+                    local outline = partData.visual:FindFirstChildOfClass("SelectionBox")
+                    if outline then
+                        outline.Color3 = color
+                    end
                 end
             end
         end
@@ -287,8 +291,13 @@ local function createPlayerHighlight(player)
     if playerHighlights[player] then
         pcall(function() 
             if type(playerHighlights[player]) == "table" then
+                if playerHighlights[player].folder then
+                    playerHighlights[player].folder:Destroy()
+                end
                 for _, part in pairs(playerHighlights[player]) do
-                    part:Destroy()
+                    if part ~= playerHighlights[player].folder then
+                        part:Destroy()
+                    end
                 end
             else
                 playerHighlights[player]:Destroy()
@@ -304,43 +313,59 @@ local function createPlayerHighlight(player)
         color = Color3.fromRGB(0, 255, 255)
     end
     
-    -- Criar contornos para cada parte do corpo
+    -- Criar folder para organizar
+    local espFolder = Instance.new("Folder")
+    espFolder.Name = "ESP_" .. player.Name
+    espFolder.Parent = CoreGui
+    
+    -- Partes do corpo para rastrear
     local parts = {
-        {name = "Head", size = Vector3.new(2, 1, 1), offset = CFrame.new(0, 0, 0)},
-        {name = "Torso", size = Vector3.new(2, 2, 1), offset = CFrame.new(0, 0, 0)},
-        {name = "Left Arm", size = Vector3.new(1, 2, 1), offset = CFrame.new(0, 0, 0)},
-        {name = "Right Arm", size = Vector3.new(1, 2, 1), offset = CFrame.new(0, 0, 0)},
-        {name = "Left Leg", size = Vector3.new(1, 2, 1), offset = CFrame.new(0, 0, 0)},
-        {name = "Right Leg", size = Vector3.new(1, 2, 1), offset = CFrame.new(0, 0, 0)},
-        {name = "UpperTorso", size = Vector3.new(2, 1.5, 1), offset = CFrame.new(0, 0, 0)},
-        {name = "LowerTorso", size = Vector3.new(2, 1, 1), offset = CFrame.new(0, 0, 0)},
-        {name = "LeftUpperArm", size = Vector3.new(1, 1.5, 1), offset = CFrame.new(0, 0, 0)},
-        {name = "LeftLowerArm", size = Vector3.new(1, 1.5, 1), offset = CFrame.new(0, 0, 0)},
-        {name = "RightUpperArm", size = Vector3.new(1, 1.5, 1), offset = CFrame.new(0, 0, 0)},
-        {name = "RightLowerArm", size = Vector3.new(1, 1.5, 1), offset = CFrame.new(0, 0, 0)},
-        {name = "LeftUpperLeg", size = Vector3.new(1, 1.5, 1), offset = CFrame.new(0, 0, 0)},
-        {name = "LeftLowerLeg", size = Vector3.new(1, 1.5, 1), offset = CFrame.new(0, 0, 0)},
-        {name = "RightUpperLeg", size = Vector3.new(1, 1.5, 1), offset = CFrame.new(0, 0, 0)},
-        {name = "RightLowerLeg", size = Vector3.new(1, 1.5, 1), offset = CFrame.new(0, 0, 0)},
+        {name = "Head", size = Vector3.new(2, 1, 1)},
+        {name = "Torso", size = Vector3.new(2, 2, 1)},
+        {name = "Left Arm", size = Vector3.new(1, 2, 1)},
+        {name = "Right Arm", size = Vector3.new(1, 2, 1)},
+        {name = "Left Leg", size = Vector3.new(1, 2, 1)},
+        {name = "Right Leg", size = Vector3.new(1, 2, 1)},
+        {name = "UpperTorso", size = Vector3.new(2, 1.5, 1)},
+        {name = "LowerTorso", size = Vector3.new(2, 1, 1)},
+        {name = "LeftUpperArm", size = Vector3.new(1, 1.5, 1)},
+        {name = "LeftLowerArm", size = Vector3.new(1, 1.5, 1)},
+        {name = "RightUpperArm", size = Vector3.new(1, 1.5, 1)},
+        {name = "RightLowerArm", size = Vector3.new(1, 1.5, 1)},
+        {name = "LeftUpperLeg", size = Vector3.new(1, 1.5, 1)},
+        {name = "LeftLowerLeg", size = Vector3.new(1, 1.5, 1)},
+        {name = "RightUpperLeg", size = Vector3.new(1, 1.5, 1)},
+        {name = "RightLowerLeg", size = Vector3.new(1, 1.5, 1)},
     }
     
-    local espParts = {}
+    local espParts = {folder = espFolder}
     
     for _, partInfo in ipairs(parts) do
         local bodyPart = character:FindFirstChild(partInfo.name)
         if bodyPart and bodyPart:IsA("BasePart") then
-            local box = Instance.new("BoxHandleAdornment")
-            box.Name = "ESP_" .. partInfo.name
-            box.Adornee = bodyPart
-            box.Size = partInfo.size
-            box.CFrame = partInfo.offset
-            box.Color3 = color
-            box.Transparency = 0.7
-            box.AlwaysOnTop = true
-            box.ZIndex = 5
-            box.Parent = CoreGui
+            -- Criar parte visual própria
+            local espPart = Instance.new("Part")
+            espPart.Name = "ESP_" .. partInfo.name
+            espPart.Size = bodyPart.Size
+            espPart.CanCollide = false
+            espPart.Anchored = true
+            espPart.Material = Enum.Material.Neon
+            espPart.Color = color
+            espPart.Transparency = 0.7
+            espPart.Parent = espFolder
             
-            table.insert(espParts, box)
+            -- Criar outline (caixa ao redor)
+            local outline = Instance.new("SelectionBox")
+            outline.LineThickness = 0.05
+            outline.Color3 = color
+            outline.Transparency = 0
+            outline.Adornee = espPart
+            outline.Parent = espPart
+            
+            -- Guardar referência da parte original
+            espPart:SetAttribute("TargetPart", partInfo.name)
+            
+            table.insert(espParts, {visual = espPart, target = bodyPart})
         end
     end
     
@@ -366,12 +391,8 @@ function ESPModule.toggleESPPlayer(state, lp, playerGui)
         
         for _, espParts in pairs(playerHighlights) do
             pcall(function()
-                if type(espParts) == "table" then
-                    for _, box in ipairs(espParts) do
-                        box:Destroy()
-                    end
-                else
-                    espParts:Destroy()
+                if type(espParts) == "table" and espParts.folder then
+                    espParts.folder:Destroy()
                 end
             end)
         end
@@ -396,12 +417,8 @@ function ESPModule.toggleESPPlayer(state, lp, playerGui)
                             
                             if playerHighlights[player] then
                                 pcall(function()
-                                    if type(playerHighlights[player]) == "table" then
-                                        for _, box in ipairs(playerHighlights[player]) do
-                                            box:Destroy()
-                                        end
-                                    else
-                                        playerHighlights[player]:Destroy()
+                                    if type(playerHighlights[player]) == "table" and playerHighlights[player].folder then
+                                        playerHighlights[player].folder:Destroy()
                                     end
                                 end)
                                 playerHighlights[player] = nil
@@ -447,24 +464,24 @@ function ESPModule.setupLoop(lp)
                         playerBillboards[player].Adornee = rootPart
                     end
 
-                    -- Verificar se highlights existem
-                    local needsRecreate = false
-                    if not playerHighlights[player] then
-                        needsRecreate = true
-                    elseif type(playerHighlights[player]) == "table" then
-                        local validParts = 0
-                        for _, box in ipairs(playerHighlights[player]) do
-                            if box and box.Parent then
-                                validParts = validParts + 1
+                    -- Verificar e atualizar highlights
+                    if not playerHighlights[player] or not playerHighlights[player].folder or not playerHighlights[player].folder.Parent then
+                        createPlayerHighlight(player)
+                    else
+                        -- Atualizar posição de cada parte visual
+                        local espParts = playerHighlights[player]
+                        for i, partData in ipairs(espParts) do
+                            if partData and partData.visual and partData.target then
+                                if partData.target.Parent then
+                                    -- Atualizar CFrame para seguir a parte original
+                                    partData.visual.CFrame = partData.target.CFrame
+                                else
+                                    -- Se a parte não existe mais, recriar ESP
+                                    createPlayerHighlight(player)
+                                    break
+                                end
                             end
                         end
-                        if validParts == 0 then
-                            needsRecreate = true
-                        end
-                    end
-                    
-                    if needsRecreate then
-                        createPlayerHighlight(player)
                     end
                 end
             end
@@ -480,12 +497,8 @@ function ESPModule.setupPlayerEvents(lp)
         
         if playerHighlights[player] then
             pcall(function()
-                if type(playerHighlights[player]) == "table" then
-                    for _, box in ipairs(playerHighlights[player]) do
-                        box:Destroy()
-                    end
-                else
-                    playerHighlights[player]:Destroy()
+                if type(playerHighlights[player]) == "table" and playerHighlights[player].folder then
+                    playerHighlights[player].folder:Destroy()
                 end
             end)
         end
@@ -502,12 +515,8 @@ function ESPModule.setupPlayerEvents(lp)
                     
                     if playerHighlights[player] then
                         pcall(function()
-                            if type(playerHighlights[player]) == "table" then
-                                for _, box in ipairs(playerHighlights[player]) do
-                                    box:Destroy()
-                                end
-                            else
-                                playerHighlights[player]:Destroy()
+                            if type(playerHighlights[player]) == "table" and playerHighlights[player].folder then
+                                playerHighlights[player].folder:Destroy()
                             end
                         end)
                         playerHighlights[player] = nil
