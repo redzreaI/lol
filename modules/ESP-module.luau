@@ -187,16 +187,20 @@ local function updateESPColors()
     end
     
     -- Atualizar cores dos highlights
-    for player, highlight in pairs(playerHighlights) do
-        if highlight and highlight.Parent then
+    for player, espParts in pairs(playerHighlights) do
+        if espParts and type(espParts) == "table" then
             local color
             if scriptUsers[player.Name] then
                 color = Color3.fromRGB(255, 165, 0)
             else
                 color = Color3.fromRGB(0, 255, 255)
             end
-            highlight.FillColor = color
-            highlight.OutlineColor = color
+            
+            for _, box in ipairs(espParts) do
+                if box and box.Parent then
+                    box.Color3 = color
+                end
+            end
         end
     end
 end
@@ -282,7 +286,13 @@ local function createPlayerHighlight(player)
 
     if playerHighlights[player] then
         pcall(function() 
-            playerHighlights[player]:Destroy() 
+            if type(playerHighlights[player]) == "table" then
+                for _, part in pairs(playerHighlights[player]) do
+                    part:Destroy()
+                end
+            else
+                playerHighlights[player]:Destroy()
+            end
         end)
         playerHighlights[player] = nil
     end
@@ -294,17 +304,47 @@ local function createPlayerHighlight(player)
         color = Color3.fromRGB(0, 255, 255)
     end
     
-    local highlight = Instance.new("Highlight")
-    highlight.Name = "PlayerESP_Highlight"
-    highlight.Adornee = character
-    highlight.FillColor = color
-    highlight.FillTransparency = 0.5
-    highlight.OutlineColor = color
-    highlight.OutlineTransparency = 0
-    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    highlight.Parent = CoreGui
+    -- Criar contornos para cada parte do corpo
+    local parts = {
+        {name = "Head", size = Vector3.new(2, 1, 1), offset = CFrame.new(0, 0, 0)},
+        {name = "Torso", size = Vector3.new(2, 2, 1), offset = CFrame.new(0, 0, 0)},
+        {name = "Left Arm", size = Vector3.new(1, 2, 1), offset = CFrame.new(0, 0, 0)},
+        {name = "Right Arm", size = Vector3.new(1, 2, 1), offset = CFrame.new(0, 0, 0)},
+        {name = "Left Leg", size = Vector3.new(1, 2, 1), offset = CFrame.new(0, 0, 0)},
+        {name = "Right Leg", size = Vector3.new(1, 2, 1), offset = CFrame.new(0, 0, 0)},
+        {name = "UpperTorso", size = Vector3.new(2, 1.5, 1), offset = CFrame.new(0, 0, 0)},
+        {name = "LowerTorso", size = Vector3.new(2, 1, 1), offset = CFrame.new(0, 0, 0)},
+        {name = "LeftUpperArm", size = Vector3.new(1, 1.5, 1), offset = CFrame.new(0, 0, 0)},
+        {name = "LeftLowerArm", size = Vector3.new(1, 1.5, 1), offset = CFrame.new(0, 0, 0)},
+        {name = "RightUpperArm", size = Vector3.new(1, 1.5, 1), offset = CFrame.new(0, 0, 0)},
+        {name = "RightLowerArm", size = Vector3.new(1, 1.5, 1), offset = CFrame.new(0, 0, 0)},
+        {name = "LeftUpperLeg", size = Vector3.new(1, 1.5, 1), offset = CFrame.new(0, 0, 0)},
+        {name = "LeftLowerLeg", size = Vector3.new(1, 1.5, 1), offset = CFrame.new(0, 0, 0)},
+        {name = "RightUpperLeg", size = Vector3.new(1, 1.5, 1), offset = CFrame.new(0, 0, 0)},
+        {name = "RightLowerLeg", size = Vector3.new(1, 1.5, 1), offset = CFrame.new(0, 0, 0)},
+    }
     
-    playerHighlights[player] = highlight
+    local espParts = {}
+    
+    for _, partInfo in ipairs(parts) do
+        local bodyPart = character:FindFirstChild(partInfo.name)
+        if bodyPart and bodyPart:IsA("BasePart") then
+            local box = Instance.new("BoxHandleAdornment")
+            box.Name = "ESP_" .. partInfo.name
+            box.Adornee = bodyPart
+            box.Size = partInfo.size
+            box.CFrame = partInfo.offset
+            box.Color3 = color
+            box.Transparency = 0.7
+            box.AlwaysOnTop = true
+            box.ZIndex = 5
+            box.Parent = CoreGui
+            
+            table.insert(espParts, box)
+        end
+    end
+    
+    playerHighlights[player] = espParts
 end
 
 -- Funções públicas
@@ -324,8 +364,16 @@ function ESPModule.toggleESPPlayer(state, lp, playerGui)
             pcall(function() billboard:Destroy() end) 
         end
         
-        for _, box in pairs(playerHighlights) do
-            pcall(function() box:Destroy() end)
+        for _, espParts in pairs(playerHighlights) do
+            pcall(function()
+                if type(espParts) == "table" then
+                    for _, box in ipairs(espParts) do
+                        box:Destroy()
+                    end
+                else
+                    espParts:Destroy()
+                end
+            end)
         end
         
         playerBillboards = {}
@@ -347,7 +395,15 @@ function ESPModule.toggleESPPlayer(state, lp, playerGui)
                             end
                             
                             if playerHighlights[player] then
-                                pcall(function() playerHighlights[player]:Destroy() end)
+                                pcall(function()
+                                    if type(playerHighlights[player]) == "table" then
+                                        for _, box in ipairs(playerHighlights[player]) do
+                                            box:Destroy()
+                                        end
+                                    else
+                                        playerHighlights[player]:Destroy()
+                                    end
+                                end)
                                 playerHighlights[player] = nil
                             end
                             
@@ -391,7 +447,23 @@ function ESPModule.setupLoop(lp)
                         playerBillboards[player].Adornee = rootPart
                     end
 
-                    if not playerHighlights[player] or not playerHighlights[player].Parent then
+                    -- Verificar se highlights existem
+                    local needsRecreate = false
+                    if not playerHighlights[player] then
+                        needsRecreate = true
+                    elseif type(playerHighlights[player]) == "table" then
+                        local validParts = 0
+                        for _, box in ipairs(playerHighlights[player]) do
+                            if box and box.Parent then
+                                validParts = validParts + 1
+                            end
+                        end
+                        if validParts == 0 then
+                            needsRecreate = true
+                        end
+                    end
+                    
+                    if needsRecreate then
                         createPlayerHighlight(player)
                     end
                 end
@@ -407,7 +479,15 @@ function ESPModule.setupPlayerEvents(lp)
         end
         
         if playerHighlights[player] then
-            pcall(function() playerHighlights[player]:Destroy() end)
+            pcall(function()
+                if type(playerHighlights[player]) == "table" then
+                    for _, box in ipairs(playerHighlights[player]) do
+                        box:Destroy()
+                    end
+                else
+                    playerHighlights[player]:Destroy()
+                end
+            end)
         end
     end)
     
@@ -421,7 +501,15 @@ function ESPModule.setupPlayerEvents(lp)
                     end
                     
                     if playerHighlights[player] then
-                        pcall(function() playerHighlights[player]:Destroy() end)
+                        pcall(function()
+                            if type(playerHighlights[player]) == "table" then
+                                for _, box in ipairs(playerHighlights[player]) do
+                                    box:Destroy()
+                                end
+                            else
+                                playerHighlights[player]:Destroy()
+                            end
+                        end)
                         playerHighlights[player] = nil
                     end
 
