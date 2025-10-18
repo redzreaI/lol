@@ -284,8 +284,8 @@ local function createPlayerHighlight(player)
     if playerHighlights[player] then
         pcall(function() 
             if type(playerHighlights[player]) == "table" then
-                if playerHighlights[player].folder then
-                    playerHighlights[player].folder:Destroy()
+                if playerHighlights[player].clone then
+                    playerHighlights[player].clone:Destroy()
                 end
             else
                 playerHighlights[player]:Destroy()
@@ -301,75 +301,59 @@ local function createPlayerHighlight(player)
         color = Color3.fromRGB(0, 255, 255)
     end
     
-    -- Criar folder para organizar (vai pro Workspace para Highlight funcionar)
-    local espFolder = Instance.new("Model")
-    espFolder.Name = "ESP_" .. player.Name
-    espFolder.Parent = Workspace
+    -- Clonar o personagem completo
+    local espClone = Instance.new("Model")
+    espClone.Name = "ESP_" .. player.Name
+    espClone.Parent = Workspace
     
-    -- Partes do corpo para rastrear
-    local parts = {
-        {name = "Head"},
-        {name = "Torso"},
-        {name = "Left Arm"},
-        {name = "Right Arm"},
-        {name = "Left Leg"},
-        {name = "Right Leg"},
-        {name = "UpperTorso"},
-        {name = "LowerTorso"},
-        {name = "LeftUpperArm"},
-        {name = "LeftLowerArm"},
-        {name = "RightUpperArm"},
-        {name = "RightLowerArm"},
-        {name = "LeftUpperLeg"},
-        {name = "LeftLowerLeg"},
-        {name = "RightUpperLeg"},
-        {name = "RightLowerLeg"},
-        {name = "LeftHand"},
-        {name = "RightHand"},
-        {name = "LeftFoot"},
-        {name = "RightFoot"},
-    }
+    local clonedParts = {}
     
-    local espParts = {folder = espFolder, parts = {}}
-    local hasValidParts = false
-    
-    for _, partInfo in ipairs(parts) do
-        local bodyPart = character:FindFirstChild(partInfo.name)
-        if bodyPart and bodyPart:IsA("BasePart") then
-            -- Criar parte invisível que copia a parte do corpo
-            local espPart = Instance.new("Part")
-            espPart.Name = "ESP_" .. partInfo.name
-            espPart.Size = bodyPart.Size
-            espPart.CanCollide = false
-            espPart.Anchored = true
-            espPart.Transparency = 1 -- Invisível, só o Highlight vai aparecer
-            espPart.CastShadow = false
-            espPart.Parent = espFolder
+    -- Clonar todas as partes do personagem
+    for _, child in ipairs(character:GetDescendants()) do
+        if child:IsA("BasePart") then
+            local clonePart = Instance.new("Part")
+            clonePart.Name = child.Name
+            clonePart.Size = child.Size
+            clonePart.CFrame = child.CFrame
+            clonePart.CanCollide = false
+            clonePart.Anchored = true
+            clonePart.Transparency = 0.98
+            clonePart.Material = Enum.Material.ForceField
+            clonePart.CastShadow = false
+            clonePart.Parent = espClone
             
-            table.insert(espParts.parts, {visual = espPart, target = bodyPart})
-            hasValidParts = true
+            -- Copiar formato se for MeshPart ou tiver SpecialMesh
+            if child:IsA("MeshPart") then
+                clonePart.Shape = Enum.PartType.Block
+            elseif child:FindFirstChildOfClass("SpecialMesh") then
+                local mesh = child:FindFirstChildOfClass("SpecialMesh"):Clone()
+                mesh.Parent = clonePart
+            end
+            
+            table.insert(clonedParts, {clone = clonePart, original = child})
         end
     end
     
-    if hasValidParts then
-        -- Criar Highlight no Model inteiro
+    if #clonedParts > 0 then
+        -- Criar Highlight no clone
         local highlight = Instance.new("Highlight")
-        highlight.Name = "PlayerESP_Highlight"
-        highlight.Adornee = espFolder
+        highlight.Name = "PlayerESP"
+        highlight.Adornee = espClone
         highlight.FillColor = color
         highlight.FillTransparency = 0.5
         highlight.OutlineColor = color
         highlight.OutlineTransparency = 0
         highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-        highlight.Parent = espFolder
+        highlight.Parent = espClone
         
-        espParts.highlight = highlight
+        playerHighlights[player] = {
+            clone = espClone,
+            parts = clonedParts,
+            highlight = highlight
+        }
     else
-        espFolder:Destroy()
-        return
+        espClone:Destroy()
     end
-    
-    playerHighlights[player] = espParts
 end
 
 -- Funções públicas
@@ -389,10 +373,10 @@ function ESPModule.toggleESPPlayer(state, lp, playerGui)
             pcall(function() billboard:Destroy() end) 
         end
         
-        for _, espParts in pairs(playerHighlights) do
+        for _, espData in pairs(playerHighlights) do
             pcall(function()
-                if type(espParts) == "table" and espParts.folder then
-                    espParts.folder:Destroy()
+                if type(espData) == "table" and espData.clone then
+                    espData.clone:Destroy()
                 end
             end)
         end
@@ -417,8 +401,8 @@ function ESPModule.toggleESPPlayer(state, lp, playerGui)
                             
                             if playerHighlights[player] then
                                 pcall(function()
-                                    if type(playerHighlights[player]) == "table" and playerHighlights[player].folder then
-                                        playerHighlights[player].folder:Destroy()
+                                    if type(playerHighlights[player]) == "table" and playerHighlights[player].clone then
+                                        playerHighlights[player].clone:Destroy()
                                     end
                                 end)
                                 playerHighlights[player] = nil
@@ -465,17 +449,18 @@ function ESPModule.setupLoop(lp)
                     end
 
                     -- Verificar e atualizar highlights
-                    if not playerHighlights[player] or not playerHighlights[player].folder or not playerHighlights[player].folder.Parent then
+                    if not playerHighlights[player] or not playerHighlights[player].clone or not playerHighlights[player].clone.Parent then
                         createPlayerHighlight(player)
                     else
-                        -- Atualizar posição de cada parte visual
+                        -- Atualizar posição de cada parte clonada
                         local espData = playerHighlights[player]
                         if espData.parts then
                             for _, partData in ipairs(espData.parts) do
-                                if partData and partData.visual and partData.target then
-                                    if partData.target.Parent then
-                                        -- Atualizar CFrame para seguir a parte original
-                                        partData.visual.CFrame = partData.target.CFrame
+                                if partData.clone and partData.original then
+                                    if partData.original.Parent then
+                                        -- Atualizar CFrame e tamanho para seguir a parte original
+                                        partData.clone.CFrame = partData.original.CFrame
+                                        partData.clone.Size = partData.original.Size
                                     else
                                         -- Se a parte não existe mais, recriar ESP
                                         createPlayerHighlight(player)
@@ -499,8 +484,8 @@ function ESPModule.setupPlayerEvents(lp)
         
         if playerHighlights[player] then
             pcall(function()
-                if type(playerHighlights[player]) == "table" and playerHighlights[player].folder then
-                    playerHighlights[player].folder:Destroy()
+                if type(playerHighlights[player]) == "table" and playerHighlights[player].clone then
+                    playerHighlights[player].clone:Destroy()
                 end
             end)
         end
@@ -517,8 +502,8 @@ function ESPModule.setupPlayerEvents(lp)
                     
                     if playerHighlights[player] then
                         pcall(function()
-                            if type(playerHighlights[player]) == "table" and playerHighlights[player].folder then
-                                playerHighlights[player].folder:Destroy()
+                            if type(playerHighlights[player]) == "table" and playerHighlights[player].clone then
+                                playerHighlights[player].clone:Destroy()
                             end
                         end)
                         playerHighlights[player] = nil
