@@ -11,13 +11,10 @@ local CoreGui = game:GetService("CoreGui")
 local playerBillboards = {}
 local playerHighlights = {}
 local scriptUsers = {}
-local lastScriptUsersUpdate = 0
 local espOnPlayer = false
 
--- ESP Best
 local espOnBrainrot = false
 
--- Funções auxiliares para ESP Best
 local function parseMoneyPerSec(text)
     if not text then return 0 end
     local mult = 1
@@ -153,100 +150,73 @@ local function updateBest(lp)
 end
 
 -- Funções ESP Players
-local function updateScriptUsers()
-    local currentTime = tick()
-    if currentTime - lastScriptUsersUpdate < 3 then return end
-    
-    lastScriptUsersUpdate = currentTime
-    
-    local requestFunc = http_request or request or (syn and syn.request) or (fluxus and fluxus.request) or (http and http.request)
-    
-    if not requestFunc then return end
-    
-    task.spawn(function()
-        local success, res = pcall(function()
-            return requestFunc({
-                Url = "http://join.labshub.online:8000/get-users-info",
-                Method = "GET",
-                Headers = {
-                    ["Content-Type"] = "application/json",
-                    ["User-Agent"] = "Roblox/ScriptUsers"
-                }
-            })
-        end)
-        
-        if success and res then
-            local body = res.Body or res.body or res[1]
-            if body and body ~= "" then
-                local ok, data = pcall(function()
-                    return HttpService:JSONDecode(body)
-                end)
+local function updateESPColors()
+    -- Atualizar cores dos billboards
+    for player, billboard in pairs(playerBillboards) do
+        if billboard and billboard.Parent then
+            local label = billboard:FindFirstChild("TextLabel")
+            if label then
+                local oldGradient = label:FindFirstChild("UIGradient")
+                if oldGradient then oldGradient:Destroy() end
                 
-                if ok and data and data.users then
-                    scriptUsers = {}
+                if scriptUsers[player.Name] then
+                    label.TextColor3 = Color3.fromRGB(255, 165, 0)
                     
-                    for _, player in pairs(Players:GetPlayers()) do
-                        if player ~= Players.LocalPlayer then
-                            for _, user in ipairs(data.users) do
-                                if user.username == player.Name and user.userid == player.UserId then
-                                    scriptUsers[player.Name] = true
-                                    break
-                                end
-                            end
-                        end
-                    end
+                    local gradient = Instance.new('UIGradient')
+                    gradient.Color = ColorSequence.new{
+                        ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 200, 0)),
+                        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 165, 0)),
+                        ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 140, 0))
+                    }
+                    gradient.Rotation = 90
+                    gradient.Parent = label
+                else
+                    label.TextColor3 = Color3.fromRGB(0, 255, 255)
                     
-                    -- Atualizar cores
-                    for player, billboard in pairs(playerBillboards) do
-                        if billboard and billboard.Parent then
-                            local label = billboard:FindFirstChild("TextLabel")
-                            if label then
-                                local oldGradient = label:FindFirstChild("UIGradient")
-                                if oldGradient then oldGradient:Destroy() end
-                                
-                                if scriptUsers[player.Name] then
-                                    label.TextColor3 = Color3.fromRGB(255, 165, 0)
-                                    
-                                    local gradient = Instance.new('UIGradient')
-                                    gradient.Color = ColorSequence.new{
-                                        ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 200, 0)),
-                                        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 165, 0)),
-                                        ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 140, 0))
-                                    }
-                                    gradient.Rotation = 90
-                                    gradient.Parent = label
-                                else
-                                    label.TextColor3 = Color3.fromRGB(0, 255, 255)
-                                    
-                                    local gradient = Instance.new('UIGradient')
-                                    gradient.Color = ColorSequence.new{
-                                        ColorSequenceKeypoint.new(0, Color3.fromRGB(100, 255, 255)),
-                                        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 255, 255)),
-                                        ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 200, 255))
-                                    }
-                                    gradient.Rotation = 90
-                                    gradient.Parent = label
-                                end
-                            end
-                        end
-                    end
-                    
-                    for player, box in pairs(playerHighlights) do
-                        if box and box.Parent then
-                            local color
-                            if scriptUsers[player.Name] then
-                                color = Color3.fromRGB(255, 165, 0)
-                            else
-                                color = Color3.fromRGB(0, 255, 255)
-                            end
-                            
-                            box.Color3 = color
-                        end
-                    end
+                    local gradient = Instance.new('UIGradient')
+                    gradient.Color = ColorSequence.new{
+                        ColorSequenceKeypoint.new(0, Color3.fromRGB(100, 255, 255)),
+                        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 255, 255)),
+                        ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 200, 255))
+                    }
+                    gradient.Rotation = 90
+                    gradient.Parent = label
                 end
             end
         end
-    end)
+    end
+    
+    -- Atualizar cores dos highlights
+    for player, box in pairs(playerHighlights) do
+        if box and box.Parent then
+            local color
+            if scriptUsers[player.Name] then
+                color = Color3.fromRGB(255, 165, 0)
+            else
+                color = Color3.fromRGB(0, 255, 255)
+            end
+            box.Color3 = color
+        end
+    end
+end
+
+function ESPModule.updateScriptUsersFromWebSocket(usersData)
+    if not usersData or not usersData.users then return end
+    
+    scriptUsers = {}
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= Players.LocalPlayer then
+            for _, user in ipairs(usersData.users) do
+                if user.username == player.Name and tostring(user.userid) == tostring(player.UserId) then
+                    scriptUsers[player.Name] = true
+                    break
+                end
+            end
+        end
+    end
+    
+    updateESPColors()
 end
 
 local function createPlayerBillboard(player, playerGui)
@@ -390,8 +360,6 @@ function ESPModule.toggleESPPlayer(state, lp, playerGui)
                 end
             end
             
-            task.wait(1)
-            updateScriptUsers()
         end)
     end
 end
@@ -412,8 +380,6 @@ function ESPModule.setupLoop(lp)
     -- Loop ESP Player
     RunService.Heartbeat:Connect(function()
         if not espOnPlayer then return end
-        
-        updateScriptUsers()
         
         for _, player in pairs(Players:GetPlayers()) do
             if player ~= lp then
@@ -460,8 +426,6 @@ function ESPModule.setupPlayerEvents(lp)
                         pcall(function() playerHighlights[player]:Destroy() end)
                         playerHighlights[player] = nil
                     end
-                    
-                    updateScriptUsers()
 
                     local humanoid = character:WaitForChild("Humanoid", 10)
                     local rootPart = character:WaitForChild("HumanoidRootPart", 10)
