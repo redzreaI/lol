@@ -1,29 +1,29 @@
--- Módulo de Grapple Hook Speed/Fly (EXATAMENTE igual ao arise.luau)
+-- Grapple Hook Module
 local GrappleHookModule = {}
 
+-- Services
 local uis = game:GetService("UserInputService")
 local rs = game:GetService("ReplicatedStorage")
 local runService = game:GetService("RunService")
 local lp = game:GetService("Players").LocalPlayer
 local camera = workspace.CurrentCamera
 
+-- Module State
+local config = {
+    Speed = 200,
+    Keybind = Enum.KeyCode.Y,
+}
+
 local active = false
 local character
 local hrp
-local humanoid
 local tool
 local remote
+local humanoid
 local connections = {}
-local speed = 200
+local keybindConnection
 
-function GrappleHookModule.setSpeed(newSpeed)
-    speed = newSpeed
-end
-
-function GrappleHookModule.getSpeed()
-    return speed
-end
-
+-- Private Functions
 local function charsetup()
     character = lp.Character or lp.CharacterAdded:Wait()
     hrp = character:WaitForChild("HumanoidRootPart")
@@ -70,7 +70,7 @@ local function getdir()
     return moveDir.Magnitude > 0 and moveDir.Unit or Vector3.zero
 end
 
-function GrappleHookModule.enable()
+local function speedon()
     if active then return end
     active = true
     
@@ -83,8 +83,7 @@ function GrappleHookModule.enable()
         
         if direction.Magnitude > 0 then
             local randomFactor = math.random(95, 105) / 100
-            local finalVel = direction * (speed * randomFactor)
-            hrp.AssemblyLinearVelocity = finalVel
+            hrp.AssemblyLinearVelocity = direction * (config.Speed * randomFactor)
         else
             local currentVel = hrp.AssemblyLinearVelocity
             hrp.AssemblyLinearVelocity = Vector3.new(0, currentVel.Y, 0)
@@ -106,38 +105,76 @@ function GrappleHookModule.enable()
     end)
 end
 
-function GrappleHookModule.disable()
+local function speedoff()
     if not active then return end
     active = false
     cleanup()
 end
 
-function GrappleHookModule.toggle()
+-- Public Functions
+function GrappleHookModule:Enable()
+    speedon()
+end
+
+function GrappleHookModule:Disable()
+    speedoff()
+end
+
+function GrappleHookModule:Toggle()
     if active then
-        GrappleHookModule.disable()
+        self:Disable()
     else
-        GrappleHookModule.enable()
+        self:Enable()
     end
+end
+
+function GrappleHookModule:IsActive()
     return active
 end
 
-function GrappleHookModule.isActive()
-    return active
+function GrappleHookModule:SetSpeed(speed)
+    config.Speed = speed or 200
 end
 
-function GrappleHookModule.updateCharacterRefs()
-    if lp.Character then
-        character = lp.Character
-        hrp = character:FindFirstChild("HumanoidRootPart")
-        humanoid = character:FindFirstChild("Humanoid")
-    end
+function GrappleHookModule:GetSpeed()
+    return config.Speed
 end
 
-function GrappleHookModule.reset()
-    if active then
-        active = false
-        cleanup()
+function GrappleHookModule:SetKeybind(keybind)
+    config.Keybind = keybind or Enum.KeyCode.Y
+end
+
+function GrappleHookModule:GetKeybind()
+    return config.Keybind
+end
+
+function GrappleHookModule:Init(customConfig)
+    -- Apply custom config if provided
+    if customConfig then
+        if customConfig.Speed then config.Speed = customConfig.Speed end
+        if customConfig.Keybind then config.Keybind = customConfig.Keybind end
     end
+    
+    -- Setup keybind listener
+    if keybindConnection then
+        keybindConnection:Disconnect()
+    end
+    
+    keybindConnection = uis.InputBegan:Connect(function(input, processed)
+        if input.KeyCode == config.Keybind then
+            if processed then return end
+            self:Toggle()
+        end
+    end)
+end
+
+function GrappleHookModule:Destroy()
+    if keybindConnection then
+        keybindConnection:Disconnect()
+        keybindConnection = nil
+    end
+    
+    self:Disable()
 end
 
 return GrappleHookModule
