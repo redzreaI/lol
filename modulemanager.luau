@@ -232,4 +232,54 @@ function ModulesManager.isRoofStealEnabled()
     return RoofStealModule.isEnabled()
 end
 
+-- Funções para Grapple Hook (wrapper)
+function ModulesManager.initGrappleHook(customConfig)
+    if GrappleHookModule then
+        GrappleHookModule:Init(customConfig)
+    end
+end
+
+function ModulesManager.enableGrappleHook()
+    if GrappleHookModule then
+        GrappleHookModule:Enable()
+    end
+end
+
+function ModulesManager.disableGrappleHook()
+    if GrappleHookModule then
+        GrappleHookModule:Disable()
+    end
+end
+
+function ModulesManager.toggleGrappleHook()
+    if GrappleHookModule then
+        GrappleHookModule:Toggle()
+    end
+end
+
+function ModulesManager.isGrappleHookActive()
+    if GrappleHookModule then
+        return GrappleHookModule:IsActive()
+    end
+    return false
+end
+
+function ModulesManager.setGrappleHookSpeed(speed)
+    if GrappleHookModule then
+        GrappleHookModule:SetSpeed(speed)
+    end
+end
+
+function ModulesManager.setGrappleHookKeybind(keybind)
+    if GrappleHookModule then
+        GrappleHookModule:SetKeybind(keybind)
+    end
+end
+
+function ModulesManager.destroyGrappleHook()
+    if GrappleHookModule then
+        GrappleHookModule:Destroy()
+    end
+end
+
 return ModulesManager
