@@ -187,15 +187,16 @@ local function updateESPColors()
     end
     
     -- Atualizar cores dos highlights
-    for player, box in pairs(playerHighlights) do
-        if box and box.Parent then
+    for player, highlight in pairs(playerHighlights) do
+        if highlight and highlight.Parent then
             local color
             if scriptUsers[player.Name] then
                 color = Color3.fromRGB(255, 165, 0)
             else
                 color = Color3.fromRGB(0, 255, 255)
             end
-            box.Color3 = color
+            highlight.FillColor = color
+            highlight.OutlineColor = color
         end
     end
 end
@@ -278,8 +279,6 @@ local function createPlayerHighlight(player)
     if not player.Character then return end
 
     local character = player.Character
-    local rootPart = character:WaitForChild("HumanoidRootPart", 5)
-    if not rootPart then return end
 
     if playerHighlights[player] then
         pcall(function() 
@@ -295,18 +294,17 @@ local function createPlayerHighlight(player)
         color = Color3.fromRGB(0, 255, 255)
     end
     
-    local box = Instance.new("BoxHandleAdornment")
-    box.Name = "PlayerESP_Full"
-    box.Adornee = rootPart
-    box.Size = Vector3.new(4, 6, 2)
-    box.CFrame = CFrame.new(0, 0.5, 0)
-    box.Color3 = color
-    box.Transparency = 0.65
-    box.AlwaysOnTop = true
-    box.ZIndex = 5
-    box.Parent = CoreGui
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "PlayerESP_Highlight"
+    highlight.Adornee = character
+    highlight.FillColor = color
+    highlight.FillTransparency = 0.5
+    highlight.OutlineColor = color
+    highlight.OutlineTransparency = 0
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.Parent = CoreGui
     
-    playerHighlights[player] = box
+    playerHighlights[player] = highlight
 end
 
 -- Funções públicas
