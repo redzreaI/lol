@@ -32,8 +32,7 @@ local modulesToLoad = {
     "ESP-module",
     "fps-devour-module",
     "float-module",
-    "roof-steal-module",
-    "grapple-hook-module"
+    "roof-steal-module"
 }
 
 for _, moduleName in ipairs(modulesToLoad) do
@@ -77,7 +76,6 @@ local ESPModule = modules["ESP-module"]
 local FPSDevourModule = modules["fps-devour-module"]
 local FloatModule = modules["float-module"]
 local RoofStealModule = modules["roof-steal-module"]
-local GrappleHookModule = modules["grapple-hook-module"]
 
 -- Referências globais
 local Players = game:GetService("Players")
@@ -127,7 +125,6 @@ ModulesManager.ESP = ESPModule
 ModulesManager.FPSDevour = FPSDevourModule
 ModulesManager.Float = FloatModule
 ModulesManager.RoofSteal = RoofStealModule
-ModulesManager.GrappleHook = GrappleHookModule
 
 -- Funções auxiliares para acessar referências
 function ModulesManager.getCharacter()
@@ -230,56 +227,6 @@ end
 
 function ModulesManager.isRoofStealEnabled()
     return RoofStealModule.isEnabled()
-end
-
--- Funções para Grapple Hook (wrapper)
-function ModulesManager.initGrappleHook(customConfig)
-    if GrappleHookModule then
-        GrappleHookModule:Init(customConfig)
-    end
-end
-
-function ModulesManager.enableGrappleHook()
-    if GrappleHookModule then
-        GrappleHookModule:Enable()
-    end
-end
-
-function ModulesManager.disableGrappleHook()
-    if GrappleHookModule then
-        GrappleHookModule:Disable()
-    end
-end
-
-function ModulesManager.toggleGrappleHook()
-    if GrappleHookModule then
-        GrappleHookModule:Toggle()
-    end
-end
-
-function ModulesManager.isGrappleHookActive()
-    if GrappleHookModule then
-        return GrappleHookModule:IsActive()
-    end
-    return false
-end
-
-function ModulesManager.setGrappleHookSpeed(speed)
-    if GrappleHookModule then
-        GrappleHookModule:SetSpeed(speed)
-    end
-end
-
-function ModulesManager.setGrappleHookKeybind(keybind)
-    if GrappleHookModule then
-        GrappleHookModule:SetKeybind(keybind)
-    end
-end
-
-function ModulesManager.destroyGrappleHook()
-    if GrappleHookModule then
-        GrappleHookModule:Destroy()
-    end
 end
 
 return ModulesManager
