@@ -77,10 +77,16 @@ local function getdir()
 end
 
 function GrappleHookModule.enable()
-    if active then return end
+    print("[Grapple Hook] Enable called!")
+    if active then 
+        print("[Grapple Hook] Already active!")
+        return 
+    end
     active = true
     
+    print("[Grapple Hook] Starting charsetup...")
     charsetup()
+    print("[Grapple Hook] Charsetup done! HRP:", hrp, "Remote:", remote)
     
     connections.velocity = RunService.Heartbeat:Connect(function()
         if not active or not hrp then return end
@@ -89,7 +95,9 @@ function GrappleHookModule.enable()
         
         if direction.Magnitude > 0 then
             local randomFactor = math.random(95, 105) / 100
-            hrp.AssemblyLinearVelocity = direction * (speed * randomFactor)
+            local finalSpeed = speed * randomFactor
+            print("[Grapple Hook] Moving! Direction:", direction, "Speed:", finalSpeed)
+            hrp.AssemblyLinearVelocity = direction * finalSpeed
         else
             local currentVel = hrp.AssemblyLinearVelocity
             hrp.AssemblyLinearVelocity = Vector3.new(0, currentVel.Y, 0)
@@ -97,6 +105,8 @@ function GrappleHookModule.enable()
         
         hrp.AssemblyAngularVelocity = Vector3.zero
     end)
+    
+    print("[Grapple Hook] Velocity connection created!")
     
     task.spawn(function()
         while active do
