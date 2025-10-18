@@ -1,0 +1,137 @@
+-- Módulo de Grapple Hook Speed/Fly
+local GrappleHookModule = {}
+
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local lp = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+
+local active = false
+local character = nil
+local hrp = nil
+local humanoid = nil
+local tool = nil
+local remote = nil
+local connections = {}
+local speed = 200
+
+function GrappleHookModule.setSpeed(newSpeed)
+    speed = newSpeed
+end
+
+function GrappleHookModule.getSpeed()
+    return speed
+end
+
+local function charsetup()
+    character = lp.Character or lp.CharacterAdded:Wait()
+    hrp = character:WaitForChild("HumanoidRootPart")
+    humanoid = character:WaitForChild("Humanoid")
+    
+    local packages = ReplicatedStorage:WaitForChild("Packages")
+    local net = packages:FindFirstChild("Net")
+    if net then
+        remote = net:WaitForChild("RE/UseItem")
+    end
+    
+    tool = lp.Backpack:FindFirstChild("Grapple Hook")
+    if tool then
+        tool.Parent = character
+    end
+end
+
+local function cleanup()
+    for _, conn in pairs(connections) do
+        if conn then conn:Disconnect() end
+    end
+    connections = {}
+    
+    if hrp then
+        hrp.AssemblyLinearVelocity = Vector3.zero
+        hrp.AssemblyAngularVelocity = Vector3.zero
+    end
+    
+    tool = character and character:FindFirstChild("Grapple Hook")
+    if tool then
+        tool.Parent = lp.Backpack
+    end
+end
+
+local function getdir()
+    local moveDir = Vector3.zero
+    local camCF = camera.CFrame
+    
+    if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + camCF.LookVector end
+    if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - camCF.LookVector end
+    if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - camCF.RightVector end
+    if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + camCF.RightVector end
+    
+    return moveDir.Magnitude > 0 and moveDir.Unit or Vector3.zero
+end
+
+function GrappleHookModule.enable()
+    if active then return end
+    active = true
+    
+    charsetup()
+    
+    connections.velocity = RunService.Heartbeat:Connect(function()
+        if not active or not hrp then return end
+        
+        local direction = getdir()
+        
+        if direction.Magnitude > 0 then
+            local randomFactor = math.random(95, 105) / 100
+            hrp.AssemblyLinearVelocity = direction * (speed * randomFactor)
+        else
+            local currentVel = hrp.AssemblyLinearVelocity
+            hrp.AssemblyLinearVelocity = Vector3.new(0, currentVel.Y, 0)
+        end
+        
+        hrp.AssemblyAngularVelocity = Vector3.zero
+    end)
+    
+    task.spawn(function()
+        while active do
+            if remote then
+                pcall(function()
+                    local variance = math.random(80, 87) / 100
+                    remote:FireServer(variance)
+                end)
+            end
+            task.wait(1 + math.random(-10, 10) / 100)
+        end
+    end)
+end
+
+function GrappleHookModule.disable()
+    if not active then return end
+    active = false
+    cleanup()
+end
+
+function GrappleHookModule.toggle()
+    if active then
+        GrappleHookModule.disable()
+    else
+        GrappleHookModule.enable()
+    end
+    return active
+end
+
+function GrappleHookModule.isActive()
+    return active
+end
+
+function GrappleHookModule.updateCharacterRefs()
+    if lp.Character then
+        character = lp.Character
+        hrp = character:FindFirstChild("HumanoidRootPart")
+        humanoid = character:FindFirstChild("Humanoid")
+    end
+end
+
+return GrappleHookModule
