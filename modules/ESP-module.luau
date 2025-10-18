@@ -186,9 +186,9 @@ local function updateESPColors()
         end
     end
     
-    -- Atualizar cores dos highlights
-    for player, highlight in pairs(playerHighlights) do
-        if highlight and highlight.Parent then
+    -- Atualizar cores do ESP
+    for player, espData in pairs(playerHighlights) do
+        if espData and type(espData) == "table" and espData.parts then
             local color
             if scriptUsers[player.Name] then
                 color = Color3.fromRGB(255, 165, 0)
@@ -196,8 +196,11 @@ local function updateESPColors()
                 color = Color3.fromRGB(0, 255, 255)
             end
             
-            highlight.FillColor = color
-            highlight.OutlineColor = color
+            for _, partData in ipairs(espData.parts) do
+                if partData.visual and partData.visual.Parent then
+                    partData.visual.Color = color
+                end
+            end
         end
     end
 end
@@ -283,7 +286,9 @@ local function createPlayerHighlight(player)
 
     if playerHighlights[player] then
         pcall(function() 
-            playerHighlights[player]:Destroy()
+            if type(playerHighlights[player]) == "table" and playerHighlights[player].model then
+                playerHighlights[player].model:Destroy()
+            end
         end)
         playerHighlights[player] = nil
     end
@@ -295,18 +300,49 @@ local function createPlayerHighlight(player)
         color = Color3.fromRGB(0, 255, 255)
     end
     
-    -- Criar Highlight diretamente no personagem
-    local highlight = Instance.new("Highlight")
-    highlight.Name = "PlayerESP_Highlight"
-    highlight.Adornee = character
-    highlight.FillColor = color
-    highlight.FillTransparency = 0.5
-    highlight.OutlineColor = color
-    highlight.OutlineTransparency = 0
-    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    highlight.Parent = character
+    -- Criar Model no Workspace
+    local espModel = Instance.new("Model")
+    espModel.Name = "ESP_" .. player.Name
+    espModel.Parent = Workspace
     
-    playerHighlights[player] = highlight
+    local partsToTrack = {
+        "Head", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg",
+        "UpperTorso", "LowerTorso", "LeftUpperArm", "LeftLowerArm", 
+        "RightUpperArm", "RightLowerArm", "LeftUpperLeg", "LeftLowerLeg",
+        "RightUpperLeg", "RightLowerLeg", "LeftHand", "RightHand",
+        "LeftFoot", "RightFoot"
+    }
+    
+    local espParts = {}
+    
+    for _, partName in ipairs(partsToTrack) do
+        local originalPart = character:FindFirstChild(partName)
+        if originalPart and originalPart:IsA("BasePart") then
+            -- Criar parte visual
+            local visualPart = Instance.new("Part")
+            visualPart.Name = partName
+            visualPart.Size = originalPart.Size
+            visualPart.CFrame = originalPart.CFrame
+            visualPart.Transparency = 0.7
+            visualPart.Color = color
+            visualPart.Material = Enum.Material.Neon
+            visualPart.CanCollide = false
+            visualPart.Anchored = true
+            visualPart.CastShadow = false
+            visualPart.Parent = espModel
+            
+            table.insert(espParts, {visual = visualPart, original = originalPart})
+        end
+    end
+    
+    if #espParts > 0 then
+        playerHighlights[player] = {
+            model = espModel,
+            parts = espParts
+        }
+    else
+        espModel:Destroy()
+    end
 end
 
 -- Funções públicas
@@ -326,8 +362,12 @@ function ESPModule.toggleESPPlayer(state, lp, playerGui)
             pcall(function() billboard:Destroy() end) 
         end
         
-        for _, highlight in pairs(playerHighlights) do
-            pcall(function() highlight:Destroy() end)
+        for _, espData in pairs(playerHighlights) do
+            pcall(function()
+                if type(espData) == "table" and espData.model then
+                    espData.model:Destroy()
+                end
+            end)
         end
         
         playerBillboards = {}
@@ -349,7 +389,11 @@ function ESPModule.toggleESPPlayer(state, lp, playerGui)
                             end
                             
                             if playerHighlights[player] then
-                                pcall(function() playerHighlights[player]:Destroy() end)
+                                pcall(function()
+                                    if type(playerHighlights[player]) == "table" and playerHighlights[player].model then
+                                        playerHighlights[player].model:Destroy()
+                                    end
+                                end)
                                 playerHighlights[player] = nil
                             end
                             
@@ -393,9 +437,18 @@ function ESPModule.setupLoop(lp)
                         playerBillboards[player].Adornee = rootPart
                     end
 
-                    -- Verificar e criar highlight se não existir
-                    if not playerHighlights[player] or not playerHighlights[player].Parent then
+                    -- Verificar e atualizar ESP
+                    if not playerHighlights[player] or not playerHighlights[player].model or not playerHighlights[player].model.Parent then
                         createPlayerHighlight(player)
+                    else
+                        -- Sincronizar partes visuais
+                        local espData = playerHighlights[player]
+                        for _, partData in ipairs(espData.parts) do
+                            if partData.visual and partData.original and partData.original.Parent then
+                                partData.visual.CFrame = partData.original.CFrame
+                                partData.visual.Size = partData.original.Size
+                            end
+                        end
                     end
                 end
             end
@@ -410,7 +463,11 @@ function ESPModule.setupPlayerEvents(lp)
         end
         
         if playerHighlights[player] then
-            pcall(function() playerHighlights[player]:Destroy() end)
+            pcall(function()
+                if type(playerHighlights[player]) == "table" and playerHighlights[player].model then
+                    playerHighlights[player].model:Destroy()
+                end
+            end)
         end
     end)
     
@@ -424,7 +481,11 @@ function ESPModule.setupPlayerEvents(lp)
                     end
                     
                     if playerHighlights[player] then
-                        pcall(function() playerHighlights[player]:Destroy() end)
+                        pcall(function()
+                            if type(playerHighlights[player]) == "table" and playerHighlights[player].model then
+                                playerHighlights[player].model:Destroy()
+                            end
+                        end)
                         playerHighlights[player] = nil
                     end
 
