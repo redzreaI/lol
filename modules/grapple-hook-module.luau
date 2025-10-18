@@ -83,7 +83,8 @@ function GrappleHookModule.enable()
         
         if direction.Magnitude > 0 then
             local randomFactor = math.random(95, 105) / 100
-            hrp.AssemblyLinearVelocity = direction * (speed * randomFactor)
+            local finalVel = direction * (speed * randomFactor)
+            hrp.AssemblyLinearVelocity = finalVel
         else
             local currentVel = hrp.AssemblyLinearVelocity
             hrp.AssemblyLinearVelocity = Vector3.new(0, currentVel.Y, 0)
@@ -129,6 +130,13 @@ function GrappleHookModule.updateCharacterRefs()
         character = lp.Character
         hrp = character:FindFirstChild("HumanoidRootPart")
         humanoid = character:FindFirstChild("Humanoid")
+    end
+end
+
+function GrappleHookModule.reset()
+    if active then
+        active = false
+        cleanup()
     end
 end
 
