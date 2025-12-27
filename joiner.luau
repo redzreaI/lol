@@ -1,3 +1,8 @@
+getgenv().PetFinder = {
+    ["Key"] = "3d343b93fd33000f9a7d0039071ca4c4",
+    ["WS URL"] = "wss://ws-api.bloxemporium.com.br",
+}
+
 repeat task.wait() until game:IsLoaded()
 
 local Players = game:GetService("Players")
@@ -517,7 +522,7 @@ local header = createFrame(mainFrame, UDim2.new(1, 0, 0, 50), UDim2.new(0, 0, 0,
 header.Name = "Header"
 
 -- Título
-local title = createTextLabel(header, UDim2.new(1, -100, 1, 0), UDim2.new(0, 15, 0, 0), "🐾 Pet Finder", 20, THEME.AccentRed)
+local title = createTextLabel(header, UDim2.new(1, -100, 1, 0), UDim2.new(0, 15, 0, 0), "🍓 Moranguete Finder", 20, THEME.AccentRed)
 title.Name = "Title"
 title.Font = Enum.Font.GothamBold
 
