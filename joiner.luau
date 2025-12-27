@@ -11,6 +11,97 @@ local PlaceId = game.PlaceId
 local HttpService = game:GetService("HttpService")
 
 -- ============================================================================
+-- TEMA (estética do loader)
+-- ============================================================================
+
+local THEME = {
+    DarkBg = Color3.fromRGB(10, 14, 24),
+    CardBg = Color3.fromRGB(20, 25, 35),
+    AccentRed = Color3.fromRGB(255, 200, 220),
+    AccentWhite = Color3.fromRGB(255, 255, 255),
+    AccentGreen = Color3.fromRGB(100, 255, 100),
+    AccentOrange = Color3.fromRGB(240, 173, 78),
+    AccentCyan = Color3.fromRGB(0, 220, 255),
+    TextPrimary = Color3.fromRGB(255, 255, 255),
+    TextSecondary = Color3.fromRGB(185, 193, 199),
+    TextMuted = Color3.fromRGB(128, 139, 150),
+    Border = Color3.fromRGB(52, 58, 64),
+    Divider = Color3.fromRGB(73, 80, 87),
+    ButtonBg = Color3.fromRGB(30, 35, 45),
+}
+
+-- ============================================================================
+-- GUI HELPERS (estética do loader)
+-- ============================================================================
+
+local function smoothTween(object, properties, duration, easingStyle)
+    duration = duration or 0.25
+    easingStyle = easingStyle or Enum.EasingStyle.Quad
+    local tween = TweenService:Create(object, TweenInfo.new(duration, easingStyle, Enum.EasingDirection.Out), properties)
+    tween:Play()
+    return tween
+end
+
+local function addCorners(parent, radius)
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, radius or 8)
+    corner.Parent = parent
+    return corner
+end
+
+local function addStroke(parent, color, thickness, transparency)
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = color or THEME.Border
+    stroke.Thickness = thickness or 1
+    stroke.Transparency = transparency or 0.3
+    stroke.Parent = parent
+    return stroke
+end
+
+local function createFrame(parent, size, position, bgColor, bgTransparency)
+    local frame = Instance.new("Frame")
+    frame.Size = size
+    frame.Position = position
+    frame.BackgroundColor3 = bgColor or THEME.CardBg
+    frame.BackgroundTransparency = bgTransparency or 0
+    frame.BorderSizePixel = 0
+    frame.Parent = parent
+    addCorners(frame, 8)
+    return frame
+end
+
+local function createTextLabel(parent, size, position, text, textSize, textColor)
+    local label = Instance.new("TextLabel")
+    label.Size = size
+    label.Position = position
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.Font = Enum.Font.Gotham
+    label.TextSize = textSize or 12
+    label.TextColor3 = textColor or THEME.TextPrimary
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.TextYAlignment = Enum.TextYAlignment.Center
+    label.Parent = parent
+    return label
+end
+
+local function createTextButton(parent, size, position, text, bgColor, textSize)
+    local button = Instance.new("TextButton")
+    button.Size = size
+    button.Position = position
+    button.BackgroundColor3 = bgColor or THEME.ButtonBg
+    button.Text = text
+    button.Font = Enum.Font.GothamBold
+    button.TextSize = textSize or 11
+    button.TextColor3 = THEME.TextPrimary
+    button.AutoButtonColor = false
+    button.BorderSizePixel = 0
+    button.Parent = parent
+    addCorners(button, 8)
+    return button
+end
+
+-- ============================================================================
 -- CONFIGURAÇÕES
 -- ============================================================================
 
@@ -35,6 +126,9 @@ local CONFIG = {
     
     -- Auto Joiner
     AutoJoiner = false, -- Ativar auto joiner (entra automaticamente nos pets que chegarem)
+    
+    -- Pesquisa
+    SearchQuery = "", -- Query de pesquisa atual
 }
 
 -- ============================================================================
@@ -94,7 +188,6 @@ local function loadConfig()
                 CONFIG.FilterRarity = configData.FilterRarity
             end
             -- AutoJoiner NÃO é carregado do JSON (sempre inicia desativado)
-            print("[Pet Finder] Configurações carregadas do arquivo")
             return
         end
     end
@@ -121,7 +214,6 @@ local function loadConfig()
             CONFIG.FilterRarity = saved.FilterRarity
         end
         -- AutoJoiner NÃO é carregado do getgenv (sempre inicia desativado)
-        print("[Pet Finder] Configurações carregadas do getgenv")
     end
 end
 
@@ -144,7 +236,6 @@ local function saveConfig()
         end)
         
         if success then
-            print("[Pet Finder] Configurações salvas em", CONFIG_FILE)
             return
         else
             warn("[Pet Finder] Erro ao salvar em arquivo:", err)
@@ -154,7 +245,6 @@ local function saveConfig()
     -- Fallback: salva no getgenv
     if getgenv then
         getgenv().PetFinderConfig = configToSave
-        print("[Pet Finder] Configurações salvas no getgenv")
     end
 end
 
@@ -192,8 +282,6 @@ local function loadPetRarities()
             end
         end
     end
-    
-    print("[Pet Finder] Raridades carregadas:", count, "pets")
 end
 
 -- Obtém raridade de um pet
@@ -255,6 +343,18 @@ local function passesFilter(petName, petData)
     return false
 end
 
+-- Verifica se pet passa na pesquisa
+local function passesSearch(petData, searchQuery)
+    if not searchQuery or searchQuery == "" then return true end
+    
+    local query = searchQuery:lower()
+    local petName = (petData.PetName or petData.Name or ""):lower()
+    local genStr = tostring(petData.Generation or petData.G or "0"):lower()
+    local plotName = (petData.PlotName or ""):lower()
+    
+    return petName:find(query) ~= nil or genStr:find(query) ~= nil or plotName:find(query) ~= nil
+end
+
 -- Inicia carregamento de raridades
 task.spawn(function()
     task.wait(3) -- Aguarda jogo carregar
@@ -277,8 +377,6 @@ local function autoJoinWithRetry(petData)
     
     local jobId = petData.JobId
     if not jobId then return end
-    
-    print(string.format("[Auto Joiner] Pet detectado: %s, iniciando auto join...", petName))
     
     -- Função auxiliar local para parse de geração (mesma lógica da função principal)
     local function parseGen(generation)
@@ -321,17 +419,10 @@ local function autoJoinWithRetry(petData)
         
         while tries < maxTries and CONFIG.AutoJoiner do
             tries = tries + 1
-            print(string.format("[Auto Joiner] Tentativa %d/%d para %s", tries, maxTries, petName))
             
             local success, err = pcall(function()
                 TeleportService:TeleportToPlaceInstance(PlaceId, jobId, LocalPlayer)
             end)
-            
-            if not success then
-                warn(string.format("[Auto Joiner] Tentativa %d/%d falhou: %s", tries, maxTries, err))
-            else
-                print(string.format("[Auto Joiner] ✅ Teleport iniciado para %s (tentativa %d/%d)", petName, tries, maxTries))
-            end
             
             -- Sempre espera o intervalo antes da próxima tentativa (ou fim)
             task.wait(CONFIG.RetryInterval)
@@ -407,7 +498,7 @@ end
 _G.PetFinderAPI = PetFinderAPI
 
 -- ============================================================================
--- INTERFACE GUI
+-- INTERFACE GUI (estética do loader)
 -- ============================================================================
 
 local screenGui = Instance.new("ScreenGui")
@@ -417,93 +508,39 @@ screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.Parent = CoreGui
 
 -- Frame principal
-local mainFrame = Instance.new("Frame")
+local mainFrame = createFrame(screenGui, UDim2.new(0, 500, 0, 680), UDim2.new(0.5, -250, 0.5, -340), THEME.DarkBg, 0.15)
 mainFrame.Name = "MainFrame"
-mainFrame.Size = UDim2.new(0, 500, 0, 640) -- Aumentado para acomodar segunda linha de controles
-mainFrame.Position = UDim2.new(0.5, -250, 0.5, -320)
-mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-mainFrame.BorderSizePixel = 0
-mainFrame.Parent = screenGui
-
--- Corner radius
-local mainCorner = Instance.new("UICorner")
-mainCorner.CornerRadius = UDim.new(0, 12)
-mainCorner.Parent = mainFrame
-
--- Sombra (irmã do mainFrame para se mover junto)
-local shadow = Instance.new("ImageLabel")
-shadow.Name = "Shadow"
-shadow.Size = UDim2.new(0, 510, 0, 610)
-shadow.Position = UDim2.new(0.5, -250, 0.5, -300)
-shadow.BackgroundTransparency = 1
-shadow.Image = "rbxasset://textures/ui/GuiImagePlaceholder.png"
-shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
-shadow.ImageTransparency = 0.7
-shadow.ZIndex = mainFrame.ZIndex - 1
-shadow.Parent = screenGui
-
-local shadowCorner = Instance.new("UICorner")
-shadowCorner.CornerRadius = UDim.new(0, 12)
-shadowCorner.Parent = shadow
+addStroke(mainFrame, THEME.AccentRed, 1, 0.3)
 
 -- Header
-local header = Instance.new("Frame")
+local header = createFrame(mainFrame, UDim2.new(1, 0, 0, 50), UDim2.new(0, 0, 0, 0), THEME.CardBg, 0)
 header.Name = "Header"
-header.Size = UDim2.new(1, 0, 0, 50)
-header.Position = UDim2.new(0, 0, 0, 0)
-header.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-header.BorderSizePixel = 0
-header.Parent = mainFrame
-
-local headerCorner = Instance.new("UICorner")
-headerCorner.CornerRadius = UDim.new(0, 12)
-headerCorner.Parent = header
 
 -- Título
-local title = Instance.new("TextLabel")
+local title = createTextLabel(header, UDim2.new(1, -100, 1, 0), UDim2.new(0, 15, 0, 0), "🐾 Pet Finder", 20, THEME.AccentRed)
 title.Name = "Title"
-title.Size = UDim2.new(1, -100, 1, 0)
-title.Position = UDim2.new(0, 15, 0, 0)
-title.BackgroundTransparency = 1
-title.Text = "🐾 Pet Finder"
-title.TextColor3 = Color3.fromRGB(255, 255, 255)
 title.Font = Enum.Font.GothamBold
-title.TextSize = 20
-title.TextXAlignment = Enum.TextXAlignment.Left
-title.Parent = header
 
 -- Contador de pets
-local petCountLabel = Instance.new("TextLabel")
+local petCountLabel = createTextLabel(header, UDim2.new(0, 80, 1, 0), UDim2.new(1, -95, 0, 0), "0 pets", 14, THEME.TextSecondary)
 petCountLabel.Name = "PetCount"
-petCountLabel.Size = UDim2.new(0, 80, 1, 0)
-petCountLabel.Position = UDim2.new(1, -95, 0, 0)
-petCountLabel.BackgroundTransparency = 1
-petCountLabel.Text = "0 pets"
-petCountLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-petCountLabel.Font = Enum.Font.Gotham
-petCountLabel.TextSize = 14
 petCountLabel.TextXAlignment = Enum.TextXAlignment.Right
-petCountLabel.Parent = header
 
 -- Botão fechar
-local closeBtn = Instance.new("TextButton")
+local closeBtn = createTextButton(header, UDim2.new(0, 30, 0, 30), UDim2.new(1, -35, 0, 10), "×", Color3.fromRGB(255, 60, 60), 20)
 closeBtn.Name = "CloseBtn"
-closeBtn.Size = UDim2.new(0, 30, 0, 30)
-closeBtn.Position = UDim2.new(1, -35, 0, 10)
-closeBtn.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
-closeBtn.BorderSizePixel = 0
-closeBtn.Text = "×"
-closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 closeBtn.Font = Enum.Font.GothamBold
-closeBtn.TextSize = 20
-closeBtn.Parent = header
-
-local closeCorner = Instance.new("UICorner")
-closeCorner.CornerRadius = UDim.new(0, 6)
-closeCorner.Parent = closeBtn
 
 closeBtn.MouseButton1Click:Connect(function()
     screenGui.Enabled = false
+end)
+
+-- Efeito hover no botão fechar
+closeBtn.MouseEnter:Connect(function()
+    smoothTween(closeBtn, {BackgroundColor3 = Color3.fromRGB(255, 100, 100)})
+end)
+closeBtn.MouseLeave:Connect(function()
+    smoothTween(closeBtn, {BackgroundColor3 = Color3.fromRGB(255, 60, 60)})
 end)
 
 -- ============================================================================
@@ -522,8 +559,6 @@ local function updateDrag(input)
     local newY = startPos.Y.Offset + delta.Y
     
     mainFrame.Position = UDim2.new(startPos.X.Scale, newX, startPos.Y.Scale, newY)
-    -- Move a sombra junto (offset de -5 pixels)
-    shadow.Position = UDim2.new(startPos.X.Scale, newX - 5, startPos.Y.Scale, newY - 5)
 end
 
 header.InputBegan:Connect(function(input)
@@ -549,191 +584,106 @@ UserInputService.InputChanged:Connect(function(input)
 end)
 
 -- Barra de controles (linha 1)
-local controls = Instance.new("Frame")
+local controls = createFrame(mainFrame, UDim2.new(1, -20, 0, 40), UDim2.new(0, 10, 0, 60), nil, 1)
 controls.Name = "Controls"
-controls.Size = UDim2.new(1, -20, 0, 40)
-controls.Position = UDim2.new(0, 10, 0, 60)
-controls.BackgroundTransparency = 1
-controls.Parent = mainFrame
 
 -- Barra de controles (linha 2 - configurações)
-local controls2 = Instance.new("Frame")
+local controls2 = createFrame(mainFrame, UDim2.new(1, -20, 0, 35), UDim2.new(0, 10, 0, 105), nil, 1)
 controls2.Name = "Controls2"
-controls2.Size = UDim2.new(1, -20, 0, 35)
-controls2.Position = UDim2.new(0, 10, 0, 105)
-controls2.BackgroundTransparency = 1
-controls2.Visible = true
-controls2.ZIndex = 10 -- Garante que fica acima de outros elementos
-controls2.Parent = mainFrame
+controls2.ZIndex = 10
+
+-- Campo de pesquisa
+local searchFrame = createFrame(controls, UDim2.new(0, 200, 0, 35), UDim2.new(0, 0, 0, 0), THEME.ButtonBg, 0)
+searchFrame.Name = "SearchFrame"
+
+local searchBox = Instance.new("TextBox")
+searchBox.Size = UDim2.new(1, -40, 1, 0)
+searchBox.Position = UDim2.new(0, 10, 0, 0)
+searchBox.BackgroundTransparency = 1
+searchBox.Text = ""
+searchBox.PlaceholderText = "🔍 Pesquisar..."
+searchBox.PlaceholderColor3 = THEME.TextMuted
+searchBox.TextColor3 = THEME.TextPrimary
+searchBox.Font = Enum.Font.Gotham
+searchBox.TextSize = 12
+searchBox.TextXAlignment = Enum.TextXAlignment.Left
+searchBox.ClearTextOnFocus = false
+searchBox.Parent = searchFrame
+
+-- Botão de pesquisa
+local searchBtn = createTextButton(searchFrame, UDim2.new(0, 30, 0, 30), UDim2.new(1, -35, 0, 2.5), "🔍", THEME.AccentCyan, 14)
+searchBtn.Name = "SearchBtn"
+
+searchBox.FocusLost:Connect(function()
+    CONFIG.SearchQuery = searchBox.Text
+    updatePetsList()
+end)
+
+searchBtn.MouseButton1Click:Connect(function()
+    CONFIG.SearchQuery = searchBox.Text
+    updatePetsList()
+end)
 
 -- Botão refresh
-local refreshBtn = Instance.new("TextButton")
+local refreshBtn = createTextButton(controls, UDim2.new(0, 100, 0, 35), UDim2.new(0, 210, 0, 0), "🔄 Refresh", THEME.AccentCyan, 14)
 refreshBtn.Name = "RefreshBtn"
-refreshBtn.Size = UDim2.new(0, 100, 0, 35)
-refreshBtn.Position = UDim2.new(0, 0, 0, 0)
-refreshBtn.BackgroundColor3 = Color3.fromRGB(60, 120, 255)
-refreshBtn.BorderSizePixel = 0
-refreshBtn.Text = "🔄 Refresh"
-refreshBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-refreshBtn.Font = Enum.Font.Gotham
-refreshBtn.TextSize = 14
-refreshBtn.Parent = controls
-
-local refreshCorner = Instance.new("UICorner")
-refreshCorner.CornerRadius = UDim.new(0, 8)
-refreshCorner.Parent = refreshBtn
 
 -- Botão limpar
-local clearBtn = Instance.new("TextButton")
+local clearBtn = createTextButton(controls, UDim2.new(0, 100, 0, 35), UDim2.new(0, 320, 0, 0), "🗑️ Limpar", Color3.fromRGB(255, 100, 100), 14)
 clearBtn.Name = "ClearBtn"
-clearBtn.Size = UDim2.new(0, 100, 0, 35)
-clearBtn.Position = UDim2.new(0, 110, 0, 0)
-clearBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
-clearBtn.BorderSizePixel = 0
-clearBtn.Text = "🗑️ Limpar"
-clearBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-clearBtn.Font = Enum.Font.Gotham
-clearBtn.TextSize = 14
-clearBtn.Parent = controls
-
-local clearCorner = Instance.new("UICorner")
-clearCorner.CornerRadius = UDim.new(0, 8)
-clearCorner.Parent = clearBtn
 
 -- Dropdown de ordenação
-local sortLabel = Instance.new("TextLabel")
+local sortLabel = createTextLabel(controls, UDim2.new(0, 60, 0, 35), UDim2.new(0, 430, 0, 0), "Ordenar:", 12, THEME.TextSecondary)
 sortLabel.Name = "SortLabel"
-sortLabel.Size = UDim2.new(0, 60, 0, 35)
-sortLabel.Position = UDim2.new(0, 220, 0, 0)
-sortLabel.BackgroundTransparency = 1
-sortLabel.Text = "Ordenar:"
-sortLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-sortLabel.Font = Enum.Font.Gotham
-sortLabel.TextSize = 12
-sortLabel.TextXAlignment = Enum.TextXAlignment.Left
-sortLabel.Parent = controls
+sortLabel.TextYAlignment = Enum.TextYAlignment.Center
 
-local sortDropdown = Instance.new("TextButton")
+local sortDropdown = createTextButton(controls, UDim2.new(0, 60, 0, 35), UDim2.new(0, 490, 0, 0), "Tempo ▼", THEME.ButtonBg, 12)
 sortDropdown.Name = "SortDropdown"
-sortDropdown.Size = UDim2.new(0, 150, 0, 35)
-sortDropdown.Position = UDim2.new(0, 285, 0, 0)
-sortDropdown.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-sortDropdown.BorderSizePixel = 0
-sortDropdown.Text = "Tempo ▼"
-sortDropdown.TextColor3 = Color3.fromRGB(255, 255, 255)
 sortDropdown.Font = Enum.Font.Gotham
-sortDropdown.TextSize = 12
-sortDropdown.Parent = controls
-
-local sortCorner = Instance.new("UICorner")
-sortCorner.CornerRadius = UDim.new(0, 8)
-sortCorner.Parent = sortDropdown
 
 -- Botão auto joiner (linha 2)
-local autoJoinerBtn = Instance.new("TextButton")
+local autoJoinerBtn = createTextButton(controls2, UDim2.new(0, 115, 0, 35), UDim2.new(0, 0, 0, 0), CONFIG.AutoJoiner and "🤖 Auto: On" or "🤖 Auto: Off", CONFIG.AutoJoiner and THEME.AccentOrange or THEME.ButtonBg, 11)
 autoJoinerBtn.Name = "AutoJoinerBtn"
-autoJoinerBtn.Size = UDim2.new(0, 115, 0, 35)
-autoJoinerBtn.Position = UDim2.new(0, 0, 0, 0)
-autoJoinerBtn.BackgroundColor3 = CONFIG.AutoJoiner and Color3.fromRGB(255, 150, 50) or Color3.fromRGB(100, 100, 100)
-autoJoinerBtn.BorderSizePixel = 0
-autoJoinerBtn.Text = CONFIG.AutoJoiner and "🤖 Auto: On" or "🤖 Auto: Off"
-autoJoinerBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-autoJoinerBtn.Font = Enum.Font.Gotham
-autoJoinerBtn.TextSize = 11
-autoJoinerBtn.Visible = true
 autoJoinerBtn.ZIndex = 11
-autoJoinerBtn.Parent = controls2
-
-local autoJoinerCorner = Instance.new("UICorner")
-autoJoinerCorner.CornerRadius = UDim.new(0, 8)
-autoJoinerCorner.Parent = autoJoinerBtn
 
 autoJoinerBtn.MouseButton1Click:Connect(function()
     CONFIG.AutoJoiner = not CONFIG.AutoJoiner
-    autoJoinerBtn.BackgroundColor3 = CONFIG.AutoJoiner and Color3.fromRGB(255, 150, 50) or Color3.fromRGB(100, 100, 100)
+    autoJoinerBtn.BackgroundColor3 = CONFIG.AutoJoiner and THEME.AccentOrange or THEME.ButtonBg
     autoJoinerBtn.Text = CONFIG.AutoJoiner and "🤖 Auto: On" or "🤖 Auto: Off"
-    -- AutoJoiner NÃO é salvo (sempre inicia desativado após reiniciar)
-    if CONFIG.AutoJoiner then
-        print("[Auto Joiner] ✅ Auto joiner ativado!")
-    else
-        print("[Auto Joiner] ❌ Auto joiner desativado!")
-    end
 end)
 
 -- Botão filtro de raridade (linha 2)
-local filterRarityBtn = Instance.new("TextButton")
+local filterRarityBtn = createTextButton(controls2, UDim2.new(0, 115, 0, 35), UDim2.new(0, 125, 0, 0), CONFIG.FilterRarity and "✓ Filtro: On" or "✗ Filtro: Off", CONFIG.FilterRarity and THEME.AccentGreen or THEME.ButtonBg, 11)
 filterRarityBtn.Name = "FilterRarityBtn"
-filterRarityBtn.Size = UDim2.new(0, 115, 0, 35)
-filterRarityBtn.Position = UDim2.new(0, 125, 0, 0)
-filterRarityBtn.BackgroundColor3 = CONFIG.FilterRarity and Color3.fromRGB(60, 200, 100) or Color3.fromRGB(100, 100, 100)
-filterRarityBtn.BorderSizePixel = 0
-filterRarityBtn.Text = CONFIG.FilterRarity and "✓ Filtro: On" or "✗ Filtro: Off"
-filterRarityBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-filterRarityBtn.Font = Enum.Font.Gotham
-filterRarityBtn.TextSize = 11
-filterRarityBtn.Visible = true
 filterRarityBtn.ZIndex = 11
-filterRarityBtn.Parent = controls2
-
-local filterRarityCorner = Instance.new("UICorner")
-filterRarityCorner.CornerRadius = UDim.new(0, 8)
-filterRarityCorner.Parent = filterRarityBtn
 
 filterRarityBtn.MouseButton1Click:Connect(function()
     CONFIG.FilterRarity = not CONFIG.FilterRarity
-    filterRarityBtn.BackgroundColor3 = CONFIG.FilterRarity and Color3.fromRGB(60, 200, 100) or Color3.fromRGB(100, 100, 100)
+    filterRarityBtn.BackgroundColor3 = CONFIG.FilterRarity and THEME.AccentGreen or THEME.ButtonBg
     filterRarityBtn.Text = CONFIG.FilterRarity and "✓ Filtro: On" or "✗ Filtro: Off"
     saveConfig()
     updatePetsList()
 end)
 
 -- Botão de configuração (linha 2)
-local configBtn = Instance.new("TextButton")
+local configBtn = createTextButton(controls2, UDim2.new(0, 105, 0, 35), UDim2.new(0, 250, 0, 0), "⚙️ Retries", THEME.ButtonBg, 11)
 configBtn.Name = "ConfigBtn"
-configBtn.Size = UDim2.new(0, 105, 0, 35)
-configBtn.Position = UDim2.new(0, 250, 0, 0)
-configBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 200)
-configBtn.BorderSizePixel = 0
-configBtn.Text = "⚙️ Retries"
-configBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-configBtn.Font = Enum.Font.Gotham
-configBtn.TextSize = 11
-configBtn.Visible = true
 configBtn.ZIndex = 11
-configBtn.Parent = controls2
-
-local configCorner = Instance.new("UICorner")
-configCorner.CornerRadius = UDim.new(0, 8)
-configCorner.Parent = configBtn
 
 -- Botão de seleção de pets (linha 2)
-local selectPetsBtn = Instance.new("TextButton")
+local selectPetsBtn = createTextButton(controls2, UDim2.new(0, 115, 0, 35), UDim2.new(0, 365, 0, 0), "📋 Pets", THEME.AccentOrange, 11)
 selectPetsBtn.Name = "SelectPetsBtn"
-selectPetsBtn.Size = UDim2.new(0, 115, 0, 35)
-selectPetsBtn.Position = UDim2.new(0, 365, 0, 0)
-selectPetsBtn.BackgroundColor3 = Color3.fromRGB(200, 150, 80)
-selectPetsBtn.BorderSizePixel = 0
-selectPetsBtn.Text = "📋 Pets"
-selectPetsBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-selectPetsBtn.Font = Enum.Font.Gotham
-selectPetsBtn.TextSize = 11
-selectPetsBtn.Visible = true
 selectPetsBtn.ZIndex = 11
-selectPetsBtn.Parent = controls2
-
-local selectPetsCorner = Instance.new("UICorner")
-selectPetsCorner.CornerRadius = UDim.new(0, 8)
-selectPetsCorner.Parent = selectPetsBtn
 
 -- Scroll frame para lista de pets
 local scrollFrame = Instance.new("ScrollingFrame")
 scrollFrame.Name = "PetsList"
-scrollFrame.Size = UDim2.new(1, -20, 1, -155)
+scrollFrame.Size = UDim2.new(1, -20, 1, -195)
 scrollFrame.Position = UDim2.new(0, 10, 0, 145)
 scrollFrame.BackgroundTransparency = 1
 scrollFrame.BorderSizePixel = 0
 scrollFrame.ScrollBarThickness = 6
-scrollFrame.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 100)
+scrollFrame.ScrollBarImageColor3 = THEME.Border
 scrollFrame.Parent = mainFrame
 
 local listLayout = Instance.new("UIListLayout")
@@ -748,63 +698,27 @@ listLayout.Parent = scrollFrame
 -- Cria janela de configuração de retries
 local function createConfigWindow()
     -- Overlay escuro
-    local overlay = Instance.new("Frame")
+    local overlay = createFrame(screenGui, UDim2.new(1, 0, 1, 0), UDim2.new(0, 0, 0, 0), Color3.fromRGB(0, 0, 0), 0.5)
     overlay.Name = "ConfigOverlay"
-    overlay.Size = UDim2.new(1, 0, 1, 0)
-    overlay.Position = UDim2.new(0, 0, 0, 0)
-    overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    overlay.BackgroundTransparency = 0.5
     overlay.ZIndex = 20
-    overlay.Parent = screenGui
     
     -- Janela principal
-    local configWindow = Instance.new("Frame")
+    local configWindow = createFrame(screenGui, UDim2.new(0, 400, 0, 300), UDim2.new(0.5, -200, 0.5, -150), THEME.CardBg, 0)
     configWindow.Name = "ConfigWindow"
-    configWindow.Size = UDim2.new(0, 400, 0, 300)
-    configWindow.Position = UDim2.new(0.5, -200, 0.5, -150)
-    configWindow.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    configWindow.BorderSizePixel = 0
     configWindow.ZIndex = 21
-    configWindow.Parent = screenGui
-    
-    local windowCorner = Instance.new("UICorner")
-    windowCorner.CornerRadius = UDim.new(0, 12)
-    windowCorner.Parent = configWindow
+    addStroke(configWindow, THEME.AccentRed, 1, 0.3)
     
     -- Título
-    local title = Instance.new("TextLabel")
+    local title = createFrame(configWindow, UDim2.new(1, 0, 0, 40), UDim2.new(0, 0, 0, 0), THEME.ButtonBg, 0)
     title.Name = "Title"
-    title.Size = UDim2.new(1, 0, 0, 40)
-    title.Position = UDim2.new(0, 0, 0, 0)
-    title.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    title.BorderSizePixel = 0
-    title.Text = "⚙️ Configuração de Retries"
-    title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    title.Font = Enum.Font.GothamBold
-    title.TextSize = 18
-    title.Parent = configWindow
-    
-    local titleCorner = Instance.new("UICorner")
-    titleCorner.CornerRadius = UDim.new(0, 12)
-    titleCorner.Parent = title
+    local titleText = createTextLabel(title, UDim2.new(1, -50, 1, 0), UDim2.new(0, 15, 0, 0), "⚙️ Configuração de Retries", 18, THEME.AccentRed)
+    titleText.Font = Enum.Font.GothamBold
     
     -- Botão fechar
-    local closeBtn = Instance.new("TextButton")
+    local closeBtn = createTextButton(configWindow, UDim2.new(0, 30, 0, 30), UDim2.new(1, -35, 0, 5), "×", Color3.fromRGB(255, 60, 60), 20)
     closeBtn.Name = "CloseBtn"
-    closeBtn.Size = UDim2.new(0, 30, 0, 30)
-    closeBtn.Position = UDim2.new(1, -35, 0, 5)
-    closeBtn.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
-    closeBtn.BorderSizePixel = 0
-    closeBtn.Text = "×"
-    closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    closeBtn.Font = Enum.Font.GothamBold
-    closeBtn.TextSize = 20
     closeBtn.ZIndex = 22
-    closeBtn.Parent = configWindow
-    
-    local closeCorner = Instance.new("UICorner")
-    closeCorner.CornerRadius = UDim.new(0, 6)
-    closeCorner.Parent = closeBtn
+    closeBtn.Font = Enum.Font.GothamBold
     
     -- Campos de retry
     local retryFields = {}
@@ -818,55 +732,31 @@ local function createConfigWindow()
     
     for key, label in pairs(retryLabels) do
         -- Label
-        local labelText = Instance.new("TextLabel")
-        labelText.Size = UDim2.new(0, 180, 0, 30)
-        labelText.Position = UDim2.new(0, 20, 0, yPos)
-        labelText.BackgroundTransparency = 1
-        labelText.Text = label
-        labelText.TextColor3 = Color3.fromRGB(200, 200, 200)
-        labelText.Font = Enum.Font.Gotham
-        labelText.TextSize = 14
-        labelText.TextXAlignment = Enum.TextXAlignment.Left
-        labelText.Parent = configWindow
+        local labelText = createTextLabel(configWindow, UDim2.new(0, 180, 0, 30), UDim2.new(0, 20, 0, yPos), label, 14, THEME.TextSecondary)
+        labelText.TextYAlignment = Enum.TextYAlignment.Center
         
         -- TextBox
         local textBox = Instance.new("TextBox")
         textBox.Name = key .. "Retry"
         textBox.Size = UDim2.new(0, 150, 0, 35)
         textBox.Position = UDim2.new(1, -170, 0, yPos)
-        textBox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        textBox.BackgroundColor3 = THEME.ButtonBg
         textBox.BorderSizePixel = 0
         textBox.Text = tostring(CONFIG.RetryConfig[key] or 0)
-        textBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+        textBox.TextColor3 = THEME.TextPrimary
         textBox.Font = Enum.Font.Gotham
         textBox.TextSize = 14
         textBox.ClearTextOnFocus = false
         textBox.Parent = configWindow
-        
-        local textBoxCorner = Instance.new("UICorner")
-        textBoxCorner.CornerRadius = UDim.new(0, 8)
-        textBoxCorner.Parent = textBox
+        addCorners(textBox, 8)
         
         retryFields[key] = textBox
         yPos = yPos + 50
     end
     
     -- Botão salvar
-    local saveBtn = Instance.new("TextButton")
+    local saveBtn = createTextButton(configWindow, UDim2.new(0, 200, 0, 40), UDim2.new(0.5, -100, 1, -50), "💾 Salvar", THEME.AccentGreen, 16)
     saveBtn.Name = "SaveBtn"
-    saveBtn.Size = UDim2.new(0, 200, 0, 40)
-    saveBtn.Position = UDim2.new(0.5, -100, 1, -50)
-    saveBtn.BackgroundColor3 = Color3.fromRGB(60, 200, 100)
-    saveBtn.BorderSizePixel = 0
-    saveBtn.Text = "💾 Salvar"
-    saveBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    saveBtn.Font = Enum.Font.GothamBold
-    saveBtn.TextSize = 16
-    saveBtn.Parent = configWindow
-    
-    local saveCorner = Instance.new("UICorner")
-    saveCorner.CornerRadius = UDim.new(0, 8)
-    saveCorner.Parent = saveBtn
     
     -- Eventos
     closeBtn.MouseButton1Click:Connect(function()
@@ -884,7 +774,6 @@ local function createConfigWindow()
         saveConfig()
         overlay:Destroy()
         configWindow:Destroy()
-        print("[Pet Finder] Configurações de retry salvas!")
     end)
     
     overlay.InputBegan:Connect(function(input)
@@ -898,63 +787,27 @@ end
 -- Cria janela de seleção de pets
 local function createPetsSelectionWindow()
     -- Overlay escuro
-    local overlay = Instance.new("Frame")
+    local overlay = createFrame(screenGui, UDim2.new(1, 0, 1, 0), UDim2.new(0, 0, 0, 0), Color3.fromRGB(0, 0, 0), 0.5)
     overlay.Name = "PetsSelectionOverlay"
-    overlay.Size = UDim2.new(1, 0, 1, 0)
-    overlay.Position = UDim2.new(0, 0, 0, 0)
-    overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    overlay.BackgroundTransparency = 0.5
     overlay.ZIndex = 20
-    overlay.Parent = screenGui
     
     -- Janela principal
-    local petsWindow = Instance.new("Frame")
+    local petsWindow = createFrame(screenGui, UDim2.new(0, 500, 0, 600), UDim2.new(0.5, -250, 0.5, -300), THEME.CardBg, 0)
     petsWindow.Name = "PetsSelectionWindow"
-    petsWindow.Size = UDim2.new(0, 500, 0, 600)
-    petsWindow.Position = UDim2.new(0.5, -250, 0.5, -300)
-    petsWindow.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    petsWindow.BorderSizePixel = 0
     petsWindow.ZIndex = 21
-    petsWindow.Parent = screenGui
-    
-    local windowCorner = Instance.new("UICorner")
-    windowCorner.CornerRadius = UDim.new(0, 12)
-    windowCorner.Parent = petsWindow
+    addStroke(petsWindow, THEME.AccentRed, 1, 0.3)
     
     -- Título
-    local title = Instance.new("TextLabel")
+    local title = createFrame(petsWindow, UDim2.new(1, 0, 0, 40), UDim2.new(0, 0, 0, 0), THEME.ButtonBg, 0)
     title.Name = "Title"
-    title.Size = UDim2.new(1, 0, 0, 40)
-    title.Position = UDim2.new(0, 0, 0, 0)
-    title.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    title.BorderSizePixel = 0
-    title.Text = "📋 Selecionar Pets para Mostrar"
-    title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    title.Font = Enum.Font.GothamBold
-    title.TextSize = 18
-    title.Parent = petsWindow
-    
-    local titleCorner = Instance.new("UICorner")
-    titleCorner.CornerRadius = UDim.new(0, 12)
-    titleCorner.Parent = title
+    local titleText = createTextLabel(title, UDim2.new(1, -50, 1, 0), UDim2.new(0, 15, 0, 0), "📋 Selecionar Pets para Mostrar", 18, THEME.AccentRed)
+    titleText.Font = Enum.Font.GothamBold
     
     -- Botão fechar
-    local closeBtn = Instance.new("TextButton")
+    local closeBtn = createTextButton(petsWindow, UDim2.new(0, 30, 0, 30), UDim2.new(1, -35, 0, 5), "×", Color3.fromRGB(255, 60, 60), 20)
     closeBtn.Name = "CloseBtn"
-    closeBtn.Size = UDim2.new(0, 30, 0, 30)
-    closeBtn.Position = UDim2.new(1, -35, 0, 5)
-    closeBtn.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
-    closeBtn.BorderSizePixel = 0
-    closeBtn.Text = "×"
-    closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    closeBtn.Font = Enum.Font.GothamBold
-    closeBtn.TextSize = 20
     closeBtn.ZIndex = 22
-    closeBtn.Parent = petsWindow
-    
-    local closeCorner = Instance.new("UICorner")
-    closeCorner.CornerRadius = UDim.new(0, 6)
-    closeCorner.Parent = closeBtn
+    closeBtn.Font = Enum.Font.GothamBold
     
     -- Scroll frame para lista de pets
     local scrollFrame = Instance.new("ScrollingFrame")
@@ -964,6 +817,7 @@ local function createPetsSelectionWindow()
     scrollFrame.BackgroundTransparency = 1
     scrollFrame.BorderSizePixel = 0
     scrollFrame.ScrollBarThickness = 6
+    scrollFrame.ScrollBarImageColor3 = THEME.Border
     scrollFrame.Parent = petsWindow
     
     local scrollLayout = Instance.new("UIListLayout")
@@ -1003,91 +857,44 @@ local function createPetsSelectionWindow()
     end
     
     for i, petName in ipairs(petNames) do
-        local entry = Instance.new("Frame")
+        local entry = createFrame(scrollFrame, UDim2.new(1, 0, 0, 70), UDim2.new(0, 0, 0, 0), THEME.ButtonBg, 0)
         entry.Name = "PetEntry"
-        entry.Size = UDim2.new(1, 0, 0, 70) -- Aumentado para 70px para acomodar campo de valor mínimo
-        entry.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-        entry.BorderSizePixel = 0
         entry.LayoutOrder = i
-        entry.Parent = scrollFrame
-        
-        local entryCorner = Instance.new("UICorner")
-        entryCorner.CornerRadius = UDim.new(0, 8)
-        entryCorner.Parent = entry
         
         -- Checkbox
-        local checkbox = Instance.new("TextButton")
+        local checkbox = createTextButton(entry, UDim2.new(0, 30, 0, 30), UDim2.new(0, 10, 0, 5), CONFIG.MarkedPets[petName] and "✓" or "", CONFIG.MarkedPets[petName] and THEME.AccentGreen or THEME.ButtonBg, 18)
         checkbox.Name = "Checkbox"
-        checkbox.Size = UDim2.new(0, 30, 0, 30)
-        checkbox.Position = UDim2.new(0, 10, 0, 5)
-        checkbox.BackgroundColor3 = CONFIG.MarkedPets[petName] and Color3.fromRGB(60, 200, 100) or Color3.fromRGB(80, 80, 80)
-        checkbox.BorderSizePixel = 0
-        checkbox.Text = CONFIG.MarkedPets[petName] and "✓" or ""
-        checkbox.TextColor3 = Color3.fromRGB(255, 255, 255)
         checkbox.Font = Enum.Font.GothamBold
-        checkbox.TextSize = 18
-        checkbox.Parent = entry
-        
-        local checkboxCorner = Instance.new("UICorner")
-        checkboxCorner.CornerRadius = UDim.new(0, 6)
-        checkboxCorner.Parent = checkbox
         
         -- Nome do pet (primeira linha)
-        local nameLabel = Instance.new("TextLabel")
-        nameLabel.Size = UDim2.new(1, -160, 0, 30)
-        nameLabel.Position = UDim2.new(0, 50, 0, 5)
-        nameLabel.BackgroundTransparency = 1
-        nameLabel.Text = petName
-        nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-        nameLabel.Font = Enum.Font.Gotham
-        nameLabel.TextSize = 14
-        nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+        local nameLabel = createTextLabel(entry, UDim2.new(1, -160, 0, 30), UDim2.new(0, 50, 0, 5), petName, 14, THEME.TextPrimary)
         nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
-        nameLabel.Parent = entry
         
         -- Raridade (primeira linha)
-        local rarityLabel = Instance.new("TextLabel")
-        rarityLabel.Size = UDim2.new(0, 100, 0, 30)
-        rarityLabel.Position = UDim2.new(1, -110, 0, 5)
-        rarityLabel.BackgroundTransparency = 1
-        rarityLabel.Text = petRarities[petName] or "?"
-        rarityLabel.TextColor3 = Color3.fromRGB(150, 150, 255)
-        rarityLabel.Font = Enum.Font.Gotham
-        rarityLabel.TextSize = 12
+        local rarityLabel = createTextLabel(entry, UDim2.new(0, 100, 0, 30), UDim2.new(1, -110, 0, 5), petRarities[petName] or "?", 12, THEME.AccentCyan)
         rarityLabel.TextXAlignment = Enum.TextXAlignment.Right
-        rarityLabel.Parent = entry
         
         -- Label "Min:" (segunda linha)
-        local minLabel = Instance.new("TextLabel")
-        minLabel.Size = UDim2.new(0, 50, 0, 25)
-        minLabel.Position = UDim2.new(0, 50, 0, 38)
-        minLabel.BackgroundTransparency = 1
-        minLabel.Text = "Min:"
-        minLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-        minLabel.Font = Enum.Font.Gotham
-        minLabel.TextSize = 12
-        minLabel.TextXAlignment = Enum.TextXAlignment.Left
-        minLabel.Parent = entry
+        local minLabel = createTextLabel(entry, UDim2.new(0, 50, 0, 25), UDim2.new(0, 50, 0, 38), "Min:", 12, THEME.TextSecondary)
+        minLabel.TextYAlignment = Enum.TextYAlignment.Center
         
         -- Campo de valor mínimo (segunda linha)
         local minTextBox = Instance.new("TextBox")
         minTextBox.Name = "MinGen"
         minTextBox.Size = UDim2.new(0, 150, 0, 25)
         minTextBox.Position = UDim2.new(0, 105, 0, 38)
-        minTextBox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        minTextBox.BackgroundColor3 = THEME.ButtonBg
         minTextBox.BorderSizePixel = 0
         local currentMin = CONFIG.MinGeneration[petName]
         minTextBox.PlaceholderText = "Ex: 200M"
+        minTextBox.PlaceholderColor3 = THEME.TextMuted
         minTextBox.Text = currentMin and formatGenForInput(currentMin) or ""
-        minTextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+        minTextBox.TextColor3 = THEME.TextPrimary
         minTextBox.Font = Enum.Font.Gotham
         minTextBox.TextSize = 12
         minTextBox.ClearTextOnFocus = false
         minTextBox.Parent = entry
-        
-        local minTextBoxCorner = Instance.new("UICorner")
-        minTextBoxCorner.CornerRadius = UDim.new(0, 6)
-        minTextBoxCorner.Parent = minTextBox
+        addCorners(minTextBox, 6)
         
         minGenFields[petName] = minTextBox
         
@@ -1128,11 +935,11 @@ local function createPetsSelectionWindow()
         checkbox.MouseButton1Click:Connect(function()
             if CONFIG.MarkedPets[petName] then
                 CONFIG.MarkedPets[petName] = nil
-                checkbox.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+                checkbox.BackgroundColor3 = THEME.ButtonBg
                 checkbox.Text = ""
             else
                 CONFIG.MarkedPets[petName] = true
-                checkbox.BackgroundColor3 = Color3.fromRGB(60, 200, 100)
+                checkbox.BackgroundColor3 = THEME.AccentGreen
                 checkbox.Text = "✓"
             end
         end)
@@ -1144,21 +951,8 @@ local function createPetsSelectionWindow()
     end)
     
     -- Botão salvar
-    local saveBtn = Instance.new("TextButton")
+    local saveBtn = createTextButton(petsWindow, UDim2.new(0, 200, 0, 40), UDim2.new(0.5, -100, 1, -50), "💾 Salvar", THEME.AccentGreen, 16)
     saveBtn.Name = "SaveBtn"
-    saveBtn.Size = UDim2.new(0, 200, 0, 40)
-    saveBtn.Position = UDim2.new(0.5, -100, 1, -50)
-    saveBtn.BackgroundColor3 = Color3.fromRGB(60, 200, 100)
-    saveBtn.BorderSizePixel = 0
-    saveBtn.Text = "💾 Salvar"
-    saveBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    saveBtn.Font = Enum.Font.GothamBold
-    saveBtn.TextSize = 16
-    saveBtn.Parent = petsWindow
-    
-    local saveCorner = Instance.new("UICorner")
-    saveCorner.CornerRadius = UDim.new(0, 8)
-    saveCorner.Parent = saveBtn
     
     -- Eventos
     closeBtn.MouseButton1Click:Connect(function()
@@ -1200,7 +994,6 @@ local function createPetsSelectionWindow()
         overlay:Destroy()
         petsWindow:Destroy()
         updatePetsList()
-        print("[Pet Finder] Seleção de pets e valores mínimos salvos!")
     end)
     
     overlay.InputBegan:Connect(function(input)
@@ -1225,7 +1018,7 @@ local function parseGeneration(generation)
     end
     
     local genStr = tostring(generation)
-    genStr = genStr:gsub(",", ""):gsub("%s+", ""):upper() -- Remove espaços e converte para maiúsculo
+    genStr = genStr:gsub(",", ""):gsub("%s+", ""):upper()
     
     local number = genStr:match("[%d%.]+")
     if not number then return 0 end
@@ -1281,78 +1074,45 @@ local function getTimeAgo(timestamp)
 end
 
 local function createPetEntry(petData, index)
-    -- Verifica se é 100M+ para cor vermelha
+    -- Verifica se é 100M+ para cor especial
     local genStr = tostring(petData.Generation or petData.G or "0")
     local genValue = parseGeneration(genStr)
     local isHighValue = genValue >= 100000000 -- 100M
     
-    local entry = Instance.new("Frame")
+    local entry = createFrame(scrollFrame, UDim2.new(1, 0, 0, 80), UDim2.new(0, 0, 0, 0), isHighValue and Color3.fromRGB(60, 20, 20) or THEME.CardBg, 0)
     entry.Name = "PetEntry_" .. index
-    entry.Size = UDim2.new(1, 0, 0, 80)
-    
-    -- Cor de fundo do entry para 100M+
-    if isHighValue then
-        entry.BackgroundColor3 = Color3.fromRGB(60, 20, 20)
-    else
-        entry.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-    end
-    
-    entry.BorderSizePixel = 0
-    entry.Parent = scrollFrame
-    
-    local entryCorner = Instance.new("UICorner")
-    entryCorner.CornerRadius = UDim.new(0, 8)
-    entryCorner.Parent = entry
     
     -- Hover effect
     entry.MouseEnter:Connect(function()
         if isHighValue then
-            TweenService:Create(entry, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(80, 30, 30)}):Play()
+            smoothTween(entry, {BackgroundColor3 = Color3.fromRGB(80, 30, 30)})
         else
-            TweenService:Create(entry, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(45, 45, 45)}):Play()
+            smoothTween(entry, {BackgroundColor3 = THEME.ButtonBg})
         end
     end)
     entry.MouseLeave:Connect(function()
         if isHighValue then
-            TweenService:Create(entry, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(60, 20, 20)}):Play()
+            smoothTween(entry, {BackgroundColor3 = Color3.fromRGB(60, 20, 20)})
         else
-            TweenService:Create(entry, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(35, 35, 35)}):Play()
+            smoothTween(entry, {BackgroundColor3 = THEME.CardBg})
         end
     end)
     
     -- Nome do pet
-    local petName = Instance.new("TextLabel")
+    local petName = createTextLabel(entry, UDim2.new(1, -200, 0, 25), UDim2.new(0, 15, 0, 8), petData.PetName or petData.Name or "Unknown Pet", 16, THEME.TextPrimary)
     petName.Name = "PetName"
-    petName.Size = UDim2.new(1, -200, 0, 25)
-    petName.Position = UDim2.new(0, 15, 0, 8)
-    petName.BackgroundTransparency = 1
-    petName.Text = petData.PetName or petData.Name or "Unknown Pet"
-    petName.TextColor3 = Color3.fromRGB(255, 255, 255)
     petName.Font = Enum.Font.GothamBold
-    petName.TextSize = 16
-    petName.TextXAlignment = Enum.TextXAlignment.Left
     petName.TextTruncate = Enum.TextTruncate.AtEnd
-    petName.Parent = entry
     
     -- Geração
-    local generation = Instance.new("TextLabel")
+    local generation = createTextLabel(entry, UDim2.new(0, 150, 0, 20), UDim2.new(0, 15, 0, 30), "Gen: " .. (formatGeneration(petData.Generation or petData.G or 0)), 13, THEME.AccentCyan)
     generation.Name = "Generation"
-    generation.Size = UDim2.new(0, 150, 0, 20)
-    generation.Position = UDim2.new(0, 15, 0, 30)
-    generation.BackgroundTransparency = 1
-    generation.Text = "Gen: " .. (formatGeneration(petData.Generation or petData.G or 0))
-    generation.TextColor3 = Color3.fromRGB(100, 200, 255)
-    generation.Font = Enum.Font.Gotham
-    generation.TextSize = 13
-    generation.TextXAlignment = Enum.TextXAlignment.Left
-    generation.Parent = entry
+    generation.TextYAlignment = Enum.TextYAlignment.Center
     
     -- Info adicional
-    local info = Instance.new("TextLabel")
+    local info = createTextLabel(entry, UDim2.new(1, -200, 0, 20), UDim2.new(0, 15, 0, 50), "", 11, THEME.TextMuted)
     info.Name = "Info"
-    info.Size = UDim2.new(1, -200, 0, 20)
-    info.Position = UDim2.new(0, 15, 0, 50)
-    info.BackgroundTransparency = 1
+    info.TextYAlignment = Enum.TextYAlignment.Center
     
     local infoText = {}
     if petData.PlotName then
@@ -1363,84 +1123,40 @@ local function createPetEntry(petData, index)
     end
     
     info.Text = table.concat(infoText, " • ")
-    info.TextColor3 = Color3.fromRGB(150, 150, 150)
-    info.Font = Enum.Font.Gotham
-    info.TextSize = 11
-    info.TextXAlignment = Enum.TextXAlignment.Left
-    info.Parent = entry
     
     -- Botão entrar
-    local joinBtn = Instance.new("TextButton")
+    local joinBtn = createTextButton(entry, UDim2.new(0, 80, 0, 35), UDim2.new(1, -180, 0, 22.5), "▶ Entrar", THEME.AccentGreen, 13)
     joinBtn.Name = "JoinBtn"
-    joinBtn.Size = UDim2.new(0, 80, 0, 35)
-    joinBtn.Position = UDim2.new(1, -180, 0, 22.5)
-    joinBtn.BackgroundColor3 = Color3.fromRGB(60, 200, 100)
-    joinBtn.BorderSizePixel = 0
-    joinBtn.Text = "▶ Entrar"
-    joinBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    joinBtn.Font = Enum.Font.GothamBold
-    joinBtn.TextSize = 13
-    joinBtn.Parent = entry
-    
-    local joinCorner = Instance.new("UICorner")
-    joinCorner.CornerRadius = UDim.new(0, 6)
-    joinCorner.Parent = joinBtn
     
     -- Efeito hover no botão
     joinBtn.MouseEnter:Connect(function()
-        TweenService:Create(joinBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(80, 220, 120)}):Play()
+        smoothTween(joinBtn, {BackgroundColor3 = Color3.fromRGB(80, 255, 120)})
     end)
     joinBtn.MouseLeave:Connect(function()
-        TweenService:Create(joinBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(60, 200, 100)}):Play()
+        smoothTween(joinBtn, {BackgroundColor3 = THEME.AccentGreen})
     end)
     
-    -- Botão loop (para todos os pets, posição muda baseado em 100M+)
-    local loopBtn = Instance.new("TextButton")
+    -- Botão loop
+    local loopBtn = createTextButton(entry, UDim2.new(0, 60, 0, 35), UDim2.new(1, -110, 0, 22.5), "🔄 Loop", Color3.fromRGB(255, 80, 80), 12)
     loopBtn.Name = "LoopBtn"
-    if isHighValue then
-        loopBtn.Size = UDim2.new(0, 60, 0, 35)
-        loopBtn.Position = UDim2.new(1, -110, 0, 22.5)
-    else
-        loopBtn.Size = UDim2.new(0, 60, 0, 35)
+    
+    if not isHighValue then
         loopBtn.Position = UDim2.new(1, -90, 0, 22.5)
         joinBtn.Position = UDim2.new(1, -160, 0, 22.5)
     end
-    loopBtn.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
-    loopBtn.BorderSizePixel = 0
-    loopBtn.Text = "🔄 Loop"
-    loopBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    loopBtn.Font = Enum.Font.GothamBold
-    loopBtn.TextSize = 12
-    loopBtn.Parent = entry
-    
-    local loopCorner = Instance.new("UICorner")
-    loopCorner.CornerRadius = UDim.new(0, 6)
-    loopCorner.Parent = loopBtn
     
     -- Efeito hover no botão loop
     loopBtn.MouseEnter:Connect(function()
-        TweenService:Create(loopBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(255, 120, 120)}):Play()
+        smoothTween(loopBtn, {BackgroundColor3 = Color3.fromRGB(255, 120, 120)})
     end)
     loopBtn.MouseLeave:Connect(function()
-        TweenService:Create(loopBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(255, 80, 80)}):Play()
+        smoothTween(loopBtn, {BackgroundColor3 = Color3.fromRGB(255, 80, 80)})
     end)
     
     -- Botão marcar/desmarcar filtro
-    local filterBtn = Instance.new("TextButton")
+    local filterBtn = createTextButton(entry, UDim2.new(0, 30, 0, 30), UDim2.new(1, -35, 0, 8), "★", THEME.ButtonBg, 14)
     filterBtn.Name = "FilterBtn"
-    filterBtn.Size = UDim2.new(0, 30, 0, 30)
-    filterBtn.Position = UDim2.new(1, -35, 0, 8)
-    filterBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-    filterBtn.BorderSizePixel = 0
-    filterBtn.Text = "★"
-    filterBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     filterBtn.Font = Enum.Font.GothamBold
-    filterBtn.TextSize = 14
-    filterBtn.Parent = entry
-    
-    local filterCorner = Instance.new("UICorner")
-    filterCorner.CornerRadius = UDim.new(0, 6)
-    filterCorner.Parent = filterBtn
     
     -- Atualiza estado do botão filtro
     local function updateFilterButton()
@@ -1449,7 +1165,7 @@ local function createPetEntry(petData, index)
             filterBtn.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
             filterBtn.Text = "★"
         else
-            filterBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+            filterBtn.BackgroundColor3 = THEME.ButtonBg
             filterBtn.Text = "☆"
         end
     end
@@ -1466,7 +1182,6 @@ local function createPetEntry(petData, index)
         end
         saveConfig()
         updateFilterButton()
-        -- Recarrega lista para aplicar filtro
         updatePetsList()
     end)
     
@@ -1479,8 +1194,7 @@ local function createPetEntry(petData, index)
         end
         
         joinBtn.Text = "⏳ Entrando..."
-        joinBtn.BackgroundColor3 = Color3.fromRGB(150, 150, 150)
-        joinBtn.AutoButtonColor = false
+        joinBtn.BackgroundColor3 = THEME.TextMuted
         
         task.spawn(function()
             local success, err = pcall(function()
@@ -1492,7 +1206,7 @@ local function createPetEntry(petData, index)
                 joinBtn.Text = "❌ Erro"
                 task.wait(1)
                 joinBtn.Text = "▶ Entrar"
-                joinBtn.BackgroundColor3 = Color3.fromRGB(60, 200, 100)
+                joinBtn.BackgroundColor3 = THEME.AccentGreen
             end
         end)
     end)
@@ -1526,7 +1240,7 @@ local function createPetEntry(petData, index)
         
         isLooping = true
         loopBtn.Text = "⏸ Parar"
-        loopBtn.BackgroundColor3 = Color3.fromRGB(150, 150, 150)
+        loopBtn.BackgroundColor3 = THEME.TextMuted
         
         task.spawn(function()
             local tries = 0
@@ -1535,13 +1249,9 @@ local function createPetEntry(petData, index)
                 tries = tries + 1
                 loopBtn.Text = string.format("🔄 %d/%d", tries, maxTries)
                 
-                local success, err = pcall(function()
+                pcall(function()
                     TeleportService:TeleportToPlaceInstance(PlaceId, jobId, LocalPlayer)
                 end)
-                
-                if not success then
-                    warn(string.format("[Pet Finder] Tentativa %d/%d falhou: %s", tries, maxTries, err))
-                end
                 
                 task.wait(CONFIG.RetryInterval)
             end
@@ -1596,7 +1306,10 @@ updatePetsList = function()
     -- Converte petsData para array
     local petsArray = {}
     for _, petData in pairs(petsData) do
-        table.insert(petsArray, petData)
+        -- Aplica filtro de pesquisa
+        if passesSearch(petData, CONFIG.SearchQuery) then
+            table.insert(petsArray, petData)
+        end
     end
     
     -- Ordena
@@ -1728,30 +1441,17 @@ local function getAuthKey()
     return nil
 end
 
--- Função removida - validação agora é feita diretamente no WebSocket via headers
-
 -- ============================================================================
 -- CLIENTE WEBSOCKET PARA BRAINROT MONITOR
--- Conecta ao servidor WebSocket do selfbot e atualiza o pet finder
--- Requer Volt/KCT executor com suporte a WebSocket
 -- ============================================================================
-
--- WebSocket é fornecido pelo Volt/KCT executor (não é uma variável padrão do Roblox)
 
 -- Configuração do WebSocket (suporta Cloudflared ou localhost)
 local customWsUrl = getgenv().PetFinder and getgenv().PetFinder["WS URL"] or ""
 local WS_CONFIG = {
-    -- URL do servidor WebSocket (usa configuração customizada ou padrão localhost)
     wsUrl = (customWsUrl ~= "" and customWsUrl) or "ws://127.0.0.1:8080",
-    
-    -- URL da API de autenticação (não usado mais, mas mantido para compatibilidade)
     authApiUrl = "http://127.0.0.1:8081/api/auth",
-    
-    -- Intervalo de reconexão (segundos)
     reconnectInterval = 5,
 }
-
-print("[WebSocket Client] URL configurada:", WS_CONFIG.wsUrl)
 
 local wsClient = nil
 local isConnected = false
@@ -1779,7 +1479,7 @@ local function processBrainrots(brainrots)
                 PlotName = brainrot.PlotName,
                 PodiumID = brainrot.PodiumID,
                 AnimalIndex = brainrot.AnimalIndex,
-                timestamp = tick() -- Sempre usa timestamp atual para garantir unicidade
+                timestamp = tick()
             }
             
             -- Adiciona ao Pet Finder
@@ -1813,9 +1513,7 @@ local function handleMessage(message)
     elseif data.type == "all_brainrots" or data.type == "init" then
         -- Recebe todos os brainrots ao conectar
         if data.data and type(data.data) == "table" then
-            print(string.format("[WebSocket Client] Carregando %d brainrots...", #data.data))
             processBrainrots(data.data)
-            print("[WebSocket Client] Todos os brainrots carregados!")
         end
     end
 end
@@ -1837,21 +1535,14 @@ local function connect()
         return
     end
     
-    print("[WebSocket Client] Conectando ao WebSocket com autenticação...")
-    print("[WebSocket Client] HWID:", authHWID)
-    
     -- Verifica se WebSocket está disponível (Volt/KCT)
-    -- @ts-ignore - WebSocket é fornecido pelo executor Volt/KCT
     if not WebSocket then
         warn("[WebSocket Client] WebSocket não está disponível! Certifique-se de estar usando Volt/KCT")
         return
     end
     
-    -- Conecta ao WebSocket (sem query params - tudo via mensagem)
-    print("[WebSocket Client] Conectando ao WebSocket...")
-    
+    -- Conecta ao WebSocket
     local success, ws = pcall(function()
-        -- @ts-ignore - WebSocket é fornecido pelo executor Volt/KCT
         return WebSocket.connect(WS_CONFIG.wsUrl)
     end)
     
@@ -1880,7 +1571,6 @@ local function connect()
         -- Verifica resposta de autenticação
         if msgData.type == "auth_success" then
             isAuthenticated = true
-            print("[WebSocket Client] Autenticado! Conectado ao servidor!")
         elseif msgData.type == "auth_failed" then
             warn("[WebSocket Client] Autenticação falhou:", msgData.reason or "Razão desconhecida")
             ws:Close()
@@ -1896,7 +1586,7 @@ local function connect()
     end)
     
     -- Envia autenticação imediatamente após conectar
-    task.wait(0.1) -- Pequeno delay para conexão estabelecer
+    task.wait(0.1)
     if wsClient then
         local authMessage = HttpService:JSONEncode({
             type = "auth",
@@ -1904,12 +1594,10 @@ local function connect()
             hwid = authHWID
         })
         wsClient:Send(authMessage)
-        print("[WebSocket Client] Credenciais enviadas, aguardando validação...")
     end
     
     -- Handler de desconexão
     ws.OnClose:Connect(function()
-        print("[WebSocket Client] Desconectado do servidor")
         isConnected = false
         isAuthenticated = false
         wsClient = nil
@@ -1918,25 +1606,17 @@ local function connect()
         task.wait(WS_CONFIG.reconnectInterval)
         connect()
     end)
-    
-    -- Handler de erro (OnError não existe no WebSocket do executor)
-    -- Erros são tratados via OnClose e pcall
 end
 
 -- Inicia conexão
 task.spawn(function()
-    task.wait(1) -- Aguarda pet finder carregar
+    task.wait(1)
     connect()
 end)
 
 -- ============================================================================
 -- INICIALIZAÇÃO
 -- ============================================================================
-
-print("[Pet Finder] Interface carregada!")
-print("[Pet Finder] API disponível via PetFinderAPI")
-print("[Pet Finder] Pressione P para abrir/fechar a interface")
-print("[WebSocket Client] Cliente iniciado! Conectando a", WS_CONFIG.wsUrl)
 
 -- Atualiza lista inicial
 updatePetsList()
