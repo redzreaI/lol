@@ -1,8 +1,3 @@
-getgenv().PetFinder = {
-    ["Key"] = "3d343b93fd33000f9a7d0039071ca4c4",
-    ["WS URL"] = "wss://ws-api.bloxemporium.com.br",
-}
-
 repeat task.wait() until game:IsLoaded()
 
 local Players = game:GetService("Players")
@@ -1405,29 +1400,8 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 end)
 
 -- ============================================================================
--- SISTEMA DE AUTENTICAÇÃO KEY + HWID
+-- SISTEMA DE AUTENTICAÇÃO KEY
 -- ============================================================================
-
--- Obtém HWID único do sistema (usa função padrão do executor)
-local function getHWID()
-    -- Tenta usar função padrão do executor
-    if gethwid then
-        local success, hwid = pcall(function()
-            return gethwid()
-        end)
-        if success and hwid then
-            return tostring(hwid)
-        end
-    end
-    
-    -- Fallback se gethwid não estiver disponível
-    warn("[Auth] gethwid() não está disponível! Usando fallback.")
-    local fallback_id = ""
-    if LocalPlayer then
-        fallback_id = tostring(LocalPlayer.UserId)
-    end
-    return fallback_id .. "_fallback"
-end
 
 -- Obtém a key (vem de getgenv().PetFinder["Key"])
 local function getAuthKey()
@@ -1461,7 +1435,6 @@ local WS_CONFIG = {
 local wsClient = nil
 local isConnected = false
 local authKey = nil
-local authHWID = nil
 local isAuthenticated = false
 
 -- Função para processar brainrots recebidos
@@ -1527,16 +1500,10 @@ end
 local function connect()
     if isConnected and wsClient and isAuthenticated then return end
     
-    -- Obtém credenciais
+    -- Obtém key
     authKey = getAuthKey()
     if not authKey then
         warn("[WebSocket Client] Key não encontrada! Autenticação falhou.")
-        return
-    end
-    
-    authHWID = getHWID()
-    if not authHWID then
-        warn("[WebSocket Client] Erro ao obter HWID! Autenticação falhou.")
         return
     end
     
@@ -1595,8 +1562,7 @@ local function connect()
     if wsClient then
         local authMessage = HttpService:JSONEncode({
             type = "auth",
-            key = authKey,
-            hwid = authHWID
+            key = authKey
         })
         wsClient:Send(authMessage)
     end
