@@ -140,6 +140,13 @@ local isRefreshing = false
 local petRarities = {} -- Cache de raridades dos pets {petName = "Secret"/"OG"/etc}
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+-- Sistema de rastreamento de loops ativos (global, não é perdido quando lista é atualizada)
+local activeLoops = {} -- {[jobId] = {isLooping = true/false, tries = 0, maxTries = 100, loopThread = thread}}
+
+-- Debounce para atualizações de lista (reduz ping)
+local updateDebounce = false
+local pendingUpdate = false
+
 -- ============================================================================
 -- FUNÇÕES DE INTERFACE (declaradas antes de serem usadas)
 -- ============================================================================
@@ -455,8 +462,10 @@ function PetFinderAPI.AddPet(petData)
     -- Adiciona ou atualiza pet
     petsData[petData.id] = petData
     
-    -- Atualiza interface
-    updatePetsList()
+    -- Atualiza interface (com debounce para evitar ping alto)
+    task.spawn(function()
+        updatePetsList()
+    end)
     
     -- Auto joiner: se estiver ativo, tenta entrar automaticamente
     if CONFIG.AutoJoiner then
@@ -1252,21 +1261,49 @@ local function createPetEntry(petData, index)
         end)
     end)
     
-    -- Ação de loop (configurável por geração)
-    local isLooping = false
-    loopBtn.MouseButton1Click:Connect(function()
-        if isLooping then
-            isLooping = false
+    -- Ação de loop (configurável por geração) - usa sistema global
+    local jobId = petData.JobId
+    
+    -- Função para atualizar botão do loop (sempre consulta activeLoops diretamente)
+    local function updateLoopButton()
+        local currentLoopData = activeLoops[jobId]
+        if currentLoopData and currentLoopData.isLooping then
+            loopBtn.Text = string.format("%d/%d", currentLoopData.tries or 0, currentLoopData.maxTries or 0)
+            loopBtn.BackgroundColor3 = THEME.TextMuted
+        else
             loopBtn.Text = "Loop"
             loopBtn.BackgroundColor3 = loopBtnColor
-            -- Mantém borda preta
-            addStroke(loopBtn, Color3.fromRGB(0, 0, 0), 1.5, 0)
+        end
+        addStroke(loopBtn, Color3.fromRGB(0, 0, 0), 1.5, 0)
+    end
+    
+    -- Atualiza botão inicialmente
+    updateLoopButton()
+    
+    -- Atualiza botão periodicamente (sempre consulta activeLoops)
+    task.spawn(function()
+        while entry.Parent do
+            local currentLoopData = activeLoops[jobId]
+            if currentLoopData and currentLoopData.isLooping then
+                updateLoopButton()
+            end
+            task.wait(0.1) -- Atualiza a cada 0.1s
+        end
+    end)
+    
+    loopBtn.MouseButton1Click:Connect(function()
+        if not jobId then
+            warn("[Pet Finder] JobId não encontrado")
             return
         end
         
-        local jobId = petData.JobId
-        if not jobId then
-            warn("[Pet Finder] JobId não encontrado")
+        local currentLoopData = activeLoops[jobId]
+        
+        -- Se já está em loop, para
+        if currentLoopData and currentLoopData.isLooping then
+            currentLoopData.isLooping = false
+            activeLoops[jobId] = nil
+            updateLoopButton()
             return
         end
         
@@ -1281,18 +1318,21 @@ local function createPetEntry(petData, index)
             maxTries = CONFIG.RetryConfig["100M+"]
         end
         
-        isLooping = true
-        loopBtn.Text = "Parar"
-        loopBtn.BackgroundColor3 = THEME.TextMuted
-        -- Mantém borda preta
-        addStroke(loopBtn, Color3.fromRGB(0, 0, 0), 1.5, 0)
+        -- Cria/atualiza loop data
+        local newLoopData = {
+            isLooping = true,
+            tries = 0,
+            maxTries = maxTries,
+            jobId = jobId
+        }
+        activeLoops[jobId] = newLoopData
         
+        updateLoopButton()
+        
+        -- Inicia loop em thread separada
         task.spawn(function()
-            local tries = 0
-            
-            while isLooping and tries < maxTries do
-                tries = tries + 1
-                loopBtn.Text = string.format("%d/%d", tries, maxTries)
+            while newLoopData and newLoopData.isLooping and newLoopData.tries < maxTries do
+                newLoopData.tries = newLoopData.tries + 1
                 
                 pcall(function()
                     TeleportService:TeleportToPlaceInstance(PlaceId, jobId, LocalPlayer)
@@ -1301,16 +1341,17 @@ local function createPetEntry(petData, index)
                 task.wait(CONFIG.RetryInterval)
             end
             
-            isLooping = false
-            loopBtn.Text = "Loop"
-            loopBtn.BackgroundColor3 = loopBtnColor
-            -- Mantém borda preta
-            addStroke(loopBtn, Color3.fromRGB(0, 0, 0), 1.5, 0)
-            
-            if tries >= maxTries then
-                loopBtn.Text = "Concluído"
-                task.wait(1)
-                loopBtn.Text = "Loop"
+            -- Loop terminou
+            if newLoopData then
+                newLoopData.isLooping = false
+                if newLoopData.tries >= maxTries then
+                    -- Marca como concluído temporariamente
+                    task.wait(1)
+                end
+                -- Só remove se ainda for o mesmo loop (pode ter sido substituído)
+                if activeLoops[jobId] == newLoopData then
+                    activeLoops[jobId] = nil
+                end
             end
         end)
     end)
@@ -1340,7 +1381,29 @@ local function sortPets(petsArray)
 end
 
 updatePetsList = function()
-    if isRefreshing then return end
+    -- Debounce: se já está atualizando, marca como pendente e retorna
+    if isRefreshing then
+        pendingUpdate = true
+        return
+    end
+    
+    -- Se está em debounce, marca como pendente e retorna
+    if updateDebounce then
+        pendingUpdate = true
+        return
+    end
+    
+    -- Ativa debounce (evita atualizações muito frequentes)
+    updateDebounce = true
+    task.spawn(function()
+        task.wait(0.1) -- Espera 0.1s antes de permitir próxima atualização
+        updateDebounce = false
+        if pendingUpdate then
+            pendingUpdate = false
+            updatePetsList() -- Processa atualização pendente
+        end
+    end)
+    
     isRefreshing = true
     
     -- Limpa lista atual
@@ -1378,8 +1441,11 @@ updatePetsList = function()
         entry.LayoutOrder = i
     end
     
-    -- Atualiza scroll
-    scrollFrame.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 10)
+    -- Atualiza scroll (só se necessário)
+    task.spawn(function()
+        task.wait() -- Aguarda um frame
+        scrollFrame.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 10)
+    end)
     
     isRefreshing = false
 end
@@ -1416,10 +1482,10 @@ sortDropdown.MouseButton1Click:Connect(function()
     updatePetsList()
 end)
 
--- Atualização automática
+-- Atualização automática (reduzida para evitar ping alto)
 task.spawn(function()
     while true do
-        task.wait(CONFIG.UpdateInterval)
+        task.wait(CONFIG.UpdateInterval * 2) -- Dobra o intervalo (4s ao invés de 2s)
         if CONFIG.AutoRefresh and screenGui.Enabled then
             updatePetsList()
         end
