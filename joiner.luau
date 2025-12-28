@@ -507,8 +507,8 @@ screenGui.ResetOnSpawn = false
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.Parent = CoreGui
 
--- Frame principal
-local mainFrame = createFrame(screenGui, UDim2.new(0, 500, 0, 680), UDim2.new(0.5, -250, 0.5, -340), THEME.DarkBg, 0.15)
+-- Frame principal (altura reduzida)
+local mainFrame = createFrame(screenGui, UDim2.new(0, 500, 0, 580), UDim2.new(0.5, -250, 0.5, -290), THEME.DarkBg, 0.15)
 mainFrame.Name = "MainFrame"
 addStroke(mainFrame, THEME.AccentRed, 1, 0.3)
 
@@ -526,10 +526,13 @@ local petCountLabel = createTextLabel(header, UDim2.new(0, 80, 1, 0), UDim2.new(
 petCountLabel.Name = "PetCount"
 petCountLabel.TextXAlignment = Enum.TextXAlignment.Right
 
--- Botão fechar
-local closeBtn = createTextButton(header, UDim2.new(0, 30, 0, 30), UDim2.new(1, -35, 0, 10), "×", Color3.fromRGB(255, 60, 60), 20)
+-- Botão fechar (melhorado)
+local closeBtn = createTextButton(header, UDim2.new(0, 35, 0, 35), UDim2.new(1, -40, 0, 7.5), "×", Color3.fromRGB(255, 60, 60), 24)
 closeBtn.Name = "CloseBtn"
 closeBtn.Font = Enum.Font.GothamBold
+closeBtn.TextStrokeTransparency = 0
+closeBtn.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+addStroke(closeBtn, Color3.fromRGB(0, 0, 0), 2, 0)
 
 closeBtn.MouseButton1Click:Connect(function()
     screenGui.Enabled = false
@@ -584,102 +587,102 @@ UserInputService.InputChanged:Connect(function(input)
 end)
 
 -- Barra de controles (linha 1)
-local controls = createFrame(mainFrame, UDim2.new(1, -20, 0, 40), UDim2.new(0, 10, 0, 60), nil, 1)
+local controls = createFrame(mainFrame, UDim2.new(1, -20, 0, 30), UDim2.new(0, 10, 0, 60), nil, 1)
 controls.Name = "Controls"
 
--- Barra de controles (linha 2 - configurações)
-local controls2 = createFrame(mainFrame, UDim2.new(1, -20, 0, 35), UDim2.new(0, 10, 0, 105), nil, 1)
-controls2.Name = "Controls2"
-controls2.ZIndex = 10
-
--- Campo de pesquisa
-local searchFrame = createFrame(controls, UDim2.new(0, 200, 0, 35), UDim2.new(0, 0, 0, 0), THEME.ButtonBg, 0)
-searchFrame.Name = "SearchFrame"
-
-local searchBox = Instance.new("TextBox")
-searchBox.Size = UDim2.new(1, -40, 1, 0)
-searchBox.Position = UDim2.new(0, 10, 0, 0)
-searchBox.BackgroundTransparency = 1
-searchBox.Text = ""
-searchBox.PlaceholderText = "🔍 Pesquisar..."
-searchBox.PlaceholderColor3 = THEME.TextMuted
-searchBox.TextColor3 = THEME.TextPrimary
-searchBox.Font = Enum.Font.Gotham
-searchBox.TextSize = 12
-searchBox.TextXAlignment = Enum.TextXAlignment.Left
-searchBox.ClearTextOnFocus = false
-searchBox.Parent = searchFrame
-
--- Botão de pesquisa
-local searchBtn = createTextButton(searchFrame, UDim2.new(0, 30, 0, 30), UDim2.new(1, -35, 0, 2.5), "🔍", THEME.AccentCyan, 14)
-searchBtn.Name = "SearchBtn"
-
-searchBox.FocusLost:Connect(function()
-    CONFIG.SearchQuery = searchBox.Text
-    updatePetsList()
-end)
-
-searchBtn.MouseButton1Click:Connect(function()
-    CONFIG.SearchQuery = searchBox.Text
-    updatePetsList()
-end)
-
--- Botão refresh
-local refreshBtn = createTextButton(controls, UDim2.new(0, 100, 0, 35), UDim2.new(0, 210, 0, 0), "🔄 Refresh", THEME.AccentCyan, 14)
-refreshBtn.Name = "RefreshBtn"
-
 -- Botão limpar
-local clearBtn = createTextButton(controls, UDim2.new(0, 100, 0, 35), UDim2.new(0, 320, 0, 0), "🗑️ Limpar", Color3.fromRGB(255, 100, 100), 14)
+local clearBtn = createTextButton(controls, UDim2.new(0, 70, 0, 28), UDim2.new(0, 0, 0, 0), "Limpar", THEME.ButtonBg, 10)
 clearBtn.Name = "ClearBtn"
+addStroke(clearBtn, THEME.Border, 1, 0.5)
+
+clearBtn.MouseEnter:Connect(function()
+    smoothTween(clearBtn, {BackgroundColor3 = Color3.fromRGB(40, 45, 55)})
+end)
+clearBtn.MouseLeave:Connect(function()
+    smoothTween(clearBtn, {BackgroundColor3 = THEME.ButtonBg})
+end)
 
 -- Dropdown de ordenação
-local sortLabel = createTextLabel(controls, UDim2.new(0, 60, 0, 35), UDim2.new(0, 430, 0, 0), "Ordenar:", 12, THEME.TextSecondary)
+local sortLabel = createTextLabel(controls, UDim2.new(0, 50, 0, 28), UDim2.new(0, 80, 0, 0), "Ordenar:", 10, THEME.TextSecondary)
 sortLabel.Name = "SortLabel"
 sortLabel.TextYAlignment = Enum.TextYAlignment.Center
 
-local sortDropdown = createTextButton(controls, UDim2.new(0, 60, 0, 35), UDim2.new(0, 490, 0, 0), "Tempo ▼", THEME.ButtonBg, 12)
+local sortDropdown = createTextButton(controls, UDim2.new(0, 80, 0, 28), UDim2.new(0, 135, 0, 0), "Tempo ▼", THEME.ButtonBg, 10)
 sortDropdown.Name = "SortDropdown"
 sortDropdown.Font = Enum.Font.Gotham
+addStroke(sortDropdown, THEME.Border, 1, 0.5)
 
--- Botão auto joiner (linha 2)
-local autoJoinerBtn = createTextButton(controls2, UDim2.new(0, 115, 0, 35), UDim2.new(0, 0, 0, 0), CONFIG.AutoJoiner and "🤖 Auto: On" or "🤖 Auto: Off", CONFIG.AutoJoiner and THEME.AccentOrange or THEME.ButtonBg, 11)
+sortDropdown.MouseEnter:Connect(function()
+    smoothTween(sortDropdown, {BackgroundColor3 = Color3.fromRGB(40, 45, 55)})
+end)
+sortDropdown.MouseLeave:Connect(function()
+    smoothTween(sortDropdown, {BackgroundColor3 = THEME.ButtonBg})
+end)
+
+-- Barra de controles (linha 2 - configurações)
+local controls2 = createFrame(mainFrame, UDim2.new(1, -20, 0, 28), UDim2.new(0, 10, 0, 95), nil, 1)
+controls2.Name = "Controls2"
+controls2.ZIndex = 10
+
+-- Botão auto joiner
+local autoJoinerBtn = createTextButton(controls2, UDim2.new(0, 80, 0, 28), UDim2.new(0, 0, 0, 0), CONFIG.AutoJoiner and "Auto: On" or "Auto: Off", CONFIG.AutoJoiner and THEME.AccentOrange or THEME.ButtonBg, 10)
 autoJoinerBtn.Name = "AutoJoinerBtn"
 autoJoinerBtn.ZIndex = 11
+addStroke(autoJoinerBtn, CONFIG.AutoJoiner and THEME.AccentOrange or THEME.Border, 1, CONFIG.AutoJoiner and 0.3 or 0.5)
 
 autoJoinerBtn.MouseButton1Click:Connect(function()
     CONFIG.AutoJoiner = not CONFIG.AutoJoiner
     autoJoinerBtn.BackgroundColor3 = CONFIG.AutoJoiner and THEME.AccentOrange or THEME.ButtonBg
-    autoJoinerBtn.Text = CONFIG.AutoJoiner and "🤖 Auto: On" or "🤖 Auto: Off"
+    autoJoinerBtn.Text = CONFIG.AutoJoiner and "Auto: On" or "Auto: Off"
+    addStroke(autoJoinerBtn, CONFIG.AutoJoiner and THEME.AccentOrange or THEME.Border, 1, CONFIG.AutoJoiner and 0.3 or 0.5)
 end)
 
--- Botão filtro de raridade (linha 2)
-local filterRarityBtn = createTextButton(controls2, UDim2.new(0, 115, 0, 35), UDim2.new(0, 125, 0, 0), CONFIG.FilterRarity and "✓ Filtro: On" or "✗ Filtro: Off", CONFIG.FilterRarity and THEME.AccentGreen or THEME.ButtonBg, 11)
+-- Botão filtro de raridade (com borda preta quando ativo)
+local filterRarityBtn = createTextButton(controls2, UDim2.new(0, 80, 0, 28), UDim2.new(0, 90, 0, 0), CONFIG.FilterRarity and "Filtro: On" or "Filtro: Off", CONFIG.FilterRarity and THEME.AccentGreen or THEME.ButtonBg, 10)
 filterRarityBtn.Name = "FilterRarityBtn"
 filterRarityBtn.ZIndex = 11
+addStroke(filterRarityBtn, CONFIG.FilterRarity and Color3.fromRGB(0, 0, 0) or THEME.Border, 1.5, CONFIG.FilterRarity and 0 or 0.5) -- Borda preta quando ativo
 
 filterRarityBtn.MouseButton1Click:Connect(function()
     CONFIG.FilterRarity = not CONFIG.FilterRarity
     filterRarityBtn.BackgroundColor3 = CONFIG.FilterRarity and THEME.AccentGreen or THEME.ButtonBg
-    filterRarityBtn.Text = CONFIG.FilterRarity and "✓ Filtro: On" or "✗ Filtro: Off"
+    filterRarityBtn.Text = CONFIG.FilterRarity and "Filtro: On" or "Filtro: Off"
+    addStroke(filterRarityBtn, CONFIG.FilterRarity and Color3.fromRGB(0, 0, 0) or THEME.Border, 1.5, CONFIG.FilterRarity and 0 or 0.5) -- Borda preta quando ativo
     saveConfig()
     updatePetsList()
 end)
 
--- Botão de configuração (linha 2)
-local configBtn = createTextButton(controls2, UDim2.new(0, 105, 0, 35), UDim2.new(0, 250, 0, 0), "⚙️ Retries", THEME.ButtonBg, 11)
+-- Botão de configuração
+local configBtn = createTextButton(controls2, UDim2.new(0, 70, 0, 28), UDim2.new(0, 180, 0, 0), "Retries", THEME.ButtonBg, 10)
 configBtn.Name = "ConfigBtn"
 configBtn.ZIndex = 11
+addStroke(configBtn, THEME.Border, 1, 0.5)
 
--- Botão de seleção de pets (linha 2)
-local selectPetsBtn = createTextButton(controls2, UDim2.new(0, 115, 0, 35), UDim2.new(0, 365, 0, 0), "📋 Pets", THEME.AccentOrange, 11)
+configBtn.MouseEnter:Connect(function()
+    smoothTween(configBtn, {BackgroundColor3 = Color3.fromRGB(40, 45, 55)})
+end)
+configBtn.MouseLeave:Connect(function()
+    smoothTween(configBtn, {BackgroundColor3 = THEME.ButtonBg})
+end)
+
+-- Botão de seleção de brainrots (com borda preta)
+local selectPetsBtn = createTextButton(controls2, UDim2.new(0, 80, 0, 28), UDim2.new(0, 260, 0, 0), "Brainrots", THEME.AccentOrange, 10)
 selectPetsBtn.Name = "SelectPetsBtn"
 selectPetsBtn.ZIndex = 11
+addStroke(selectPetsBtn, Color3.fromRGB(0, 0, 0), 1.5, 0) -- Borda preta fina
 
--- Scroll frame para lista de pets
+selectPetsBtn.MouseEnter:Connect(function()
+    smoothTween(selectPetsBtn, {BackgroundColor3 = Color3.fromRGB(255, 190, 100)})
+end)
+selectPetsBtn.MouseLeave:Connect(function()
+    smoothTween(selectPetsBtn, {BackgroundColor3 = THEME.AccentOrange})
+end)
+
+-- Scroll frame para lista de pets (ajustado para altura menor)
 local scrollFrame = Instance.new("ScrollingFrame")
 scrollFrame.Name = "PetsList"
-scrollFrame.Size = UDim2.new(1, -20, 1, -195)
-scrollFrame.Position = UDim2.new(0, 10, 0, 145)
+scrollFrame.Size = UDim2.new(1, -20, 1, -155)
+scrollFrame.Position = UDim2.new(0, 10, 0, 130)
 scrollFrame.BackgroundTransparency = 1
 scrollFrame.BorderSizePixel = 0
 scrollFrame.ScrollBarThickness = 6
@@ -711,7 +714,7 @@ local function createConfigWindow()
     -- Título
     local title = createFrame(configWindow, UDim2.new(1, 0, 0, 40), UDim2.new(0, 0, 0, 0), THEME.ButtonBg, 0)
     title.Name = "Title"
-    local titleText = createTextLabel(title, UDim2.new(1, -50, 1, 0), UDim2.new(0, 15, 0, 0), "⚙️ Configuração de Retries", 18, THEME.AccentRed)
+    local titleText = createTextLabel(title, UDim2.new(1, -50, 1, 0), UDim2.new(0, 15, 0, 0), "Configuração de Retries", 18, THEME.AccentRed)
     titleText.Font = Enum.Font.GothamBold
     
     -- Botão fechar
@@ -755,7 +758,8 @@ local function createConfigWindow()
     end
     
     -- Botão salvar
-    local saveBtn = createTextButton(configWindow, UDim2.new(0, 200, 0, 40), UDim2.new(0.5, -100, 1, -50), "💾 Salvar", THEME.AccentGreen, 16)
+    local saveBtn = createTextButton(configWindow, UDim2.new(0, 200, 0, 40), UDim2.new(0.5, -100, 1, -50), "Salvar", THEME.AccentGreen, 16)
+    addStroke(saveBtn, THEME.AccentGreen, 1, 0.3)
     saveBtn.Name = "SaveBtn"
     
     -- Eventos
@@ -800,7 +804,7 @@ local function createPetsSelectionWindow()
     -- Título
     local title = createFrame(petsWindow, UDim2.new(1, 0, 0, 40), UDim2.new(0, 0, 0, 0), THEME.ButtonBg, 0)
     title.Name = "Title"
-    local titleText = createTextLabel(title, UDim2.new(1, -50, 1, 0), UDim2.new(0, 15, 0, 0), "📋 Selecionar Pets para Mostrar", 18, THEME.AccentRed)
+    local titleText = createTextLabel(title, UDim2.new(1, -50, 1, 0), UDim2.new(0, 15, 0, 0), "Selecionar Brainrots", 18, THEME.AccentRed)
     titleText.Font = Enum.Font.GothamBold
     
     -- Botão fechar
@@ -809,11 +813,30 @@ local function createPetsSelectionWindow()
     closeBtn.ZIndex = 22
     closeBtn.Font = Enum.Font.GothamBold
     
+    -- Campo de pesquisa
+    local searchFrame = createFrame(petsWindow, UDim2.new(1, -20, 0, 32), UDim2.new(0, 10, 0, 50), THEME.ButtonBg, 0)
+    searchFrame.Name = "SearchFrame"
+    addStroke(searchFrame, THEME.Border, 1, 0.5)
+    
+    local searchBox = Instance.new("TextBox")
+    searchBox.Size = UDim2.new(1, -10, 1, 0)
+    searchBox.Position = UDim2.new(0, 10, 0, 0)
+    searchBox.BackgroundTransparency = 1
+    searchBox.Text = ""
+    searchBox.PlaceholderText = "Pesquisar..."
+    searchBox.PlaceholderColor3 = THEME.TextMuted
+    searchBox.TextColor3 = THEME.TextPrimary
+    searchBox.Font = Enum.Font.Gotham
+    searchBox.TextSize = 12
+    searchBox.TextXAlignment = Enum.TextXAlignment.Left
+    searchBox.ClearTextOnFocus = false
+    searchBox.Parent = searchFrame
+    
     -- Scroll frame para lista de pets
     local scrollFrame = Instance.new("ScrollingFrame")
     scrollFrame.Name = "PetsScroll"
-    scrollFrame.Size = UDim2.new(1, -20, 1, -100)
-    scrollFrame.Position = UDim2.new(0, 10, 0, 50)
+    scrollFrame.Size = UDim2.new(1, -20, 1, -140)
+    scrollFrame.Position = UDim2.new(0, 10, 0, 90)
     scrollFrame.BackgroundTransparency = 1
     scrollFrame.BorderSizePixel = 0
     scrollFrame.ScrollBarThickness = 6
@@ -856,102 +879,131 @@ local function createPetsSelectionWindow()
         end
     end
     
-    for i, petName in ipairs(petNames) do
-        local entry = createFrame(scrollFrame, UDim2.new(1, 0, 0, 70), UDim2.new(0, 0, 0, 0), THEME.ButtonBg, 0)
-        entry.Name = "PetEntry"
-        entry.LayoutOrder = i
-        
-        -- Checkbox
-        local checkbox = createTextButton(entry, UDim2.new(0, 30, 0, 30), UDim2.new(0, 10, 0, 5), CONFIG.MarkedPets[petName] and "✓" or "", CONFIG.MarkedPets[petName] and THEME.AccentGreen or THEME.ButtonBg, 18)
-        checkbox.Name = "Checkbox"
-        checkbox.Font = Enum.Font.GothamBold
-        
-        -- Nome do pet (primeira linha)
-        local nameLabel = createTextLabel(entry, UDim2.new(1, -160, 0, 30), UDim2.new(0, 50, 0, 5), petName, 14, THEME.TextPrimary)
-        nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
-        
-        -- Raridade (primeira linha)
-        local rarityLabel = createTextLabel(entry, UDim2.new(0, 100, 0, 30), UDim2.new(1, -110, 0, 5), petRarities[petName] or "?", 12, THEME.AccentCyan)
-        rarityLabel.TextXAlignment = Enum.TextXAlignment.Right
-        
-        -- Label "Min:" (segunda linha)
-        local minLabel = createTextLabel(entry, UDim2.new(0, 50, 0, 25), UDim2.new(0, 50, 0, 38), "Min:", 12, THEME.TextSecondary)
-        minLabel.TextYAlignment = Enum.TextYAlignment.Center
-        
-        -- Campo de valor mínimo (segunda linha)
-        local minTextBox = Instance.new("TextBox")
-        minTextBox.Name = "MinGen"
-        minTextBox.Size = UDim2.new(0, 150, 0, 25)
-        minTextBox.Position = UDim2.new(0, 105, 0, 38)
-        minTextBox.BackgroundColor3 = THEME.ButtonBg
-        minTextBox.BorderSizePixel = 0
-        local currentMin = CONFIG.MinGeneration[petName]
-        minTextBox.PlaceholderText = "Ex: 200M"
-        minTextBox.PlaceholderColor3 = THEME.TextMuted
-        minTextBox.Text = currentMin and formatGenForInput(currentMin) or ""
-        minTextBox.TextColor3 = THEME.TextPrimary
-        minTextBox.Font = Enum.Font.Gotham
-        minTextBox.TextSize = 12
-        minTextBox.ClearTextOnFocus = false
-        minTextBox.Parent = entry
-        addCorners(minTextBox, 6)
-        
-        minGenFields[petName] = minTextBox
-        
-        -- Função para converter texto para número
-        local function parseGenFromInput(text)
-            if not text or text == "" then return 0 end
-            local genStr = text:gsub(",", ""):gsub("%s+", ""):upper()
-            local number = genStr:match("[%d%.]+")
-            if not number then return 0 end
-            local multiplier = 1
-            if genStr:find("K") then
-                multiplier = 1e3
-            elseif genStr:find("M") then
-                multiplier = 1e6
-            elseif genStr:find("B") then
-                multiplier = 1e9
-            elseif genStr:find("T") then
-                multiplier = 1e12
-            elseif genStr:find("Q") then
-                multiplier = 1e15
+    local searchQuery = ""
+    local function updatePetsListInWindow()
+        -- Limpa lista atual
+        for _, child in ipairs(scrollFrame:GetChildren()) do
+            if child:IsA("Frame") and child.Name == "PetEntry" then
+                child:Destroy()
             end
-            return (tonumber(number) or 0) * multiplier
         end
         
-        -- Atualiza formato ao perder foco
-        minTextBox.FocusLost:Connect(function()
-            local value = parseGenFromInput(minTextBox.Text)
-            if value > 0 then
-                minTextBox.Text = formatGenForInput(value)
-                CONFIG.MinGeneration[petName] = value
-            else
-                minTextBox.Text = ""
-                CONFIG.MinGeneration[petName] = nil
+        -- Filtra pets pela pesquisa
+        local filteredPets = {}
+        for _, petName in ipairs(petNames) do
+            if searchQuery == "" or string.find(petName:lower(), searchQuery:lower()) then
+                table.insert(filteredPets, petName)
             end
-        end)
+        end
         
-        -- Toggle checkbox
-        checkbox.MouseButton1Click:Connect(function()
-            if CONFIG.MarkedPets[petName] then
-                CONFIG.MarkedPets[petName] = nil
-                checkbox.BackgroundColor3 = THEME.ButtonBg
-                checkbox.Text = ""
-            else
-                CONFIG.MarkedPets[petName] = true
-                checkbox.BackgroundColor3 = THEME.AccentGreen
-                checkbox.Text = "✓"
+        -- Recria entries filtrados
+        for i, petName in ipairs(filteredPets) do
+            -- Cria entry (mesmo código de antes, mas com índice filtrado)
+            local entry = createFrame(scrollFrame, UDim2.new(1, 0, 0, 70), UDim2.new(0, 0, 0, 0), THEME.ButtonBg, 0)
+            entry.Name = "PetEntry"
+            entry.LayoutOrder = i
+            
+            -- Checkbox
+            local checkbox = createTextButton(entry, UDim2.new(0, 30, 0, 30), UDim2.new(0, 10, 0, 5), CONFIG.MarkedPets[petName] and "✓" or "", CONFIG.MarkedPets[petName] and THEME.AccentGreen or THEME.ButtonBg, 18)
+            checkbox.Name = "Checkbox"
+            checkbox.Font = Enum.Font.GothamBold
+            
+            -- Nome do pet (primeira linha)
+            local nameLabel = createTextLabel(entry, UDim2.new(1, -160, 0, 30), UDim2.new(0, 50, 0, 5), petName, 14, THEME.TextPrimary)
+            nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+            
+            -- Raridade (primeira linha)
+            local rarityLabel = createTextLabel(entry, UDim2.new(0, 100, 0, 30), UDim2.new(1, -110, 0, 5), petRarities[petName] or "?", 12, THEME.AccentCyan)
+            rarityLabel.TextXAlignment = Enum.TextXAlignment.Right
+            
+            -- Label "Min:" (segunda linha)
+            local minLabel = createTextLabel(entry, UDim2.new(0, 50, 0, 25), UDim2.new(0, 50, 0, 38), "Min:", 12, THEME.TextSecondary)
+            minLabel.TextYAlignment = Enum.TextYAlignment.Center
+            
+            -- Campo de valor mínimo (segunda linha)
+            local minTextBox = Instance.new("TextBox")
+            minTextBox.Name = "MinGen"
+            minTextBox.Size = UDim2.new(0, 150, 0, 25)
+            minTextBox.Position = UDim2.new(0, 105, 0, 38)
+            minTextBox.BackgroundColor3 = THEME.ButtonBg
+            minTextBox.BorderSizePixel = 0
+            local currentMin = CONFIG.MinGeneration[petName]
+            minTextBox.PlaceholderText = "Ex: 200M"
+            minTextBox.PlaceholderColor3 = THEME.TextMuted
+            minTextBox.Text = currentMin and formatGenForInput(currentMin) or ""
+            minTextBox.TextColor3 = THEME.TextPrimary
+            minTextBox.Font = Enum.Font.Gotham
+            minTextBox.TextSize = 12
+            minTextBox.ClearTextOnFocus = false
+            minTextBox.Parent = entry
+            addCorners(minTextBox, 6)
+            
+            minGenFields[petName] = minTextBox
+            
+            -- Função para converter texto para número
+            local function parseGenFromInput(text)
+                if not text or text == "" then return 0 end
+                local genStr = text:gsub(",", ""):gsub("%s+", ""):upper()
+                local number = genStr:match("[%d%.]+")
+                if not number then return 0 end
+                local multiplier = 1
+                if genStr:find("K") then
+                    multiplier = 1e3
+                elseif genStr:find("M") then
+                    multiplier = 1e6
+                elseif genStr:find("B") then
+                    multiplier = 1e9
+                elseif genStr:find("T") then
+                    multiplier = 1e12
+                elseif genStr:find("Q") then
+                    multiplier = 1e15
+                end
+                return (tonumber(number) or 0) * multiplier
             end
-        end)
+            
+            -- Atualiza formato ao perder foco
+            minTextBox.FocusLost:Connect(function()
+                local value = parseGenFromInput(minTextBox.Text)
+                if value > 0 then
+                    minTextBox.Text = formatGenForInput(value)
+                    CONFIG.MinGeneration[petName] = value
+                else
+                    minTextBox.Text = ""
+                    CONFIG.MinGeneration[petName] = nil
+                end
+            end)
+            
+            -- Toggle checkbox
+            checkbox.MouseButton1Click:Connect(function()
+                if CONFIG.MarkedPets[petName] then
+                    CONFIG.MarkedPets[petName] = nil
+                    checkbox.BackgroundColor3 = THEME.ButtonBg
+                    checkbox.Text = ""
+                else
+                    CONFIG.MarkedPets[petName] = true
+                    checkbox.BackgroundColor3 = THEME.AccentGreen
+                    checkbox.Text = "✓"
+                end
+            end)
+        end
+        
+        scrollFrame.CanvasSize = UDim2.new(0, 0, 0, scrollLayout.AbsoluteContentSize.Y + 10)
     end
     
-    scrollFrame.CanvasSize = UDim2.new(0, 0, 0, scrollLayout.AbsoluteContentSize.Y + 10)
     scrollLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
         scrollFrame.CanvasSize = UDim2.new(0, 0, 0, scrollLayout.AbsoluteContentSize.Y + 10)
     end)
     
+    searchBox:GetPropertyChangedSignal("Text"):Connect(function()
+        searchQuery = searchBox.Text
+        updatePetsListInWindow()
+    end)
+    
+    -- Inicializa lista
+    updatePetsListInWindow()
+    
     -- Botão salvar
-    local saveBtn = createTextButton(petsWindow, UDim2.new(0, 200, 0, 40), UDim2.new(0.5, -100, 1, -50), "💾 Salvar", THEME.AccentGreen, 16)
+    local saveBtn = createTextButton(petsWindow, UDim2.new(0, 200, 0, 40), UDim2.new(0.5, -100, 1, -50), "Salvar", THEME.AccentGreen, 16)
     saveBtn.Name = "SaveBtn"
     
     -- Eventos
@@ -1074,115 +1126,104 @@ local function getTimeAgo(timestamp)
 end
 
 local function createPetEntry(petData, index)
-    -- Verifica se é 100M+ para cor especial
+    -- Verifica geração para cores especiais
     local genStr = tostring(petData.Generation or petData.G or "0")
     local genValue = parseGeneration(genStr)
-    local isHighValue = genValue >= 100000000 -- 100M
+    local is1BPlus = genValue >= 1000000000 -- 1B+
+    local is500MPlus = genValue >= 500000000 -- 500M+
+    local is100MPlus = genValue >= 100000000 -- 100M
     
-    local entry = createFrame(scrollFrame, UDim2.new(1, 0, 0, 80), UDim2.new(0, 0, 0, 0), isHighValue and Color3.fromRGB(60, 20, 20) or THEME.CardBg, 0)
+    -- Cores baseadas na geração
+    local entryBgColor = THEME.CardBg
+    local entryHoverColor = THEME.ButtonBg
+    if is1BPlus then
+        entryBgColor = Color3.fromRGB(30, 10, 40) -- Roxo escuro para 1B+
+        entryHoverColor = Color3.fromRGB(50, 20, 60)
+    elseif is500MPlus then
+        entryBgColor = Color3.fromRGB(40, 20, 10) -- Marrom escuro para 500M+
+        entryHoverColor = Color3.fromRGB(60, 30, 15)
+    elseif is100MPlus then
+        entryBgColor = Color3.fromRGB(60, 20, 20) -- Vermelho escuro para 100M+
+        entryHoverColor = Color3.fromRGB(80, 30, 30)
+    end
+    
+    local entry = createFrame(scrollFrame, UDim2.new(1, 0, 0, 95), UDim2.new(0, 0, 0, 0), entryBgColor, 0)
     entry.Name = "PetEntry_" .. index
     
     -- Hover effect
     entry.MouseEnter:Connect(function()
-        if isHighValue then
-            smoothTween(entry, {BackgroundColor3 = Color3.fromRGB(80, 30, 30)})
-        else
-            smoothTween(entry, {BackgroundColor3 = THEME.ButtonBg})
-        end
+        smoothTween(entry, {BackgroundColor3 = entryHoverColor})
     end)
     entry.MouseLeave:Connect(function()
-        if isHighValue then
-            smoothTween(entry, {BackgroundColor3 = Color3.fromRGB(60, 20, 20)})
-        else
-            smoothTween(entry, {BackgroundColor3 = THEME.CardBg})
-        end
+        smoothTween(entry, {BackgroundColor3 = entryBgColor})
     end)
     
-    -- Nome do pet
-    local petName = createTextLabel(entry, UDim2.new(1, -200, 0, 25), UDim2.new(0, 15, 0, 8), petData.PetName or petData.Name or "Unknown Pet", 16, THEME.TextPrimary)
-    petName.Name = "PetName"
-    petName.Font = Enum.Font.GothamBold
-    petName.TextTruncate = Enum.TextTruncate.AtEnd
+    -- Linha 1: Nome Brainrot - Geração brainrot
+    local nameAndGen = createTextLabel(entry, UDim2.new(1, -150, 0, 22), UDim2.new(0, 12, 0, 6), "", 15, THEME.TextPrimary)
+    nameAndGen.Name = "NameAndGen"
+    nameAndGen.Font = Enum.Font.GothamBold
+    nameAndGen.TextTruncate = Enum.TextTruncate.AtEnd
     
-    -- Geração
-    local generation = createTextLabel(entry, UDim2.new(0, 150, 0, 20), UDim2.new(0, 15, 0, 30), "Gen: " .. (formatGeneration(petData.Generation or petData.G or 0)), 13, THEME.AccentCyan)
-    generation.Name = "Generation"
-    generation.TextYAlignment = Enum.TextYAlignment.Center
+    local petNameStr = petData.PetName or petData.Name or "Unknown Pet"
+    local genFormatted = formatGeneration(petData.Generation or petData.G or 0)
+    nameAndGen.Text = petNameStr .. " (" .. genFormatted .. ")"
     
-    -- Info adicional
-    local info = createTextLabel(entry, UDim2.new(1, -200, 0, 20), UDim2.new(0, 15, 0, 50), "", 11, THEME.TextMuted)
-    info.Name = "Info"
-    info.TextYAlignment = Enum.TextYAlignment.Center
+    -- Linha 2: Players
+    local playersInfo = createTextLabel(entry, UDim2.new(1, -150, 0, 18), UDim2.new(0, 12, 0, 28), "", 11, THEME.TextSecondary)
+    playersInfo.Name = "PlayersInfo"
+    playersInfo.TextYAlignment = Enum.TextYAlignment.Center
     
-    local infoText = {}
-    if petData.PlotName then
-        table.insert(infoText, "Plot: " .. petData.PlotName)
+    if petData.Players then
+        playersInfo.Text = "Players: " .. tostring(petData.Players)
+    elseif petData.PlayerCount then
+        playersInfo.Text = "Players: " .. tostring(petData.PlayerCount)
+    else
+        playersInfo.Text = "Players: N/A"
     end
+    
+    -- Linha 3: Há quanto tempo notificou
+    local timeInfo = createTextLabel(entry, UDim2.new(1, -150, 0, 18), UDim2.new(0, 12, 0, 46), "", 11, THEME.TextMuted)
+    timeInfo.Name = "TimeInfo"
+    timeInfo.TextYAlignment = Enum.TextYAlignment.Center
+    
     if petData.timestamp then
-        table.insert(infoText, getTimeAgo(petData.timestamp) .. " ago")
+        timeInfo.Text = getTimeAgo(petData.timestamp) .. " ago"
+    else
+        timeInfo.Text = "Agora"
     end
     
-    info.Text = table.concat(infoText, " • ")
-    
-    -- Botão entrar
-    local joinBtn = createTextButton(entry, UDim2.new(0, 80, 0, 35), UDim2.new(1, -180, 0, 22.5), "▶ Entrar", THEME.AccentGreen, 13)
+    -- Botão entrar (rosinha claro, com borda preta fina)
+    local joinBtnColor = Color3.fromRGB(255, 220, 240) -- Rosinha claro
+    local joinBtn = createTextButton(entry, UDim2.new(0, 70, 0, 32), UDim2.new(1, -160, 0, 28), "Entrar", joinBtnColor, 12)
     joinBtn.Name = "JoinBtn"
+    joinBtn.Font = Enum.Font.GothamBold
+    joinBtn.TextStrokeTransparency = 0
+    joinBtn.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    addStroke(joinBtn, Color3.fromRGB(0, 0, 0), 1.5, 0) -- Borda preta fina
     
-    -- Efeito hover no botão
+    -- Efeito hover no botão entrar
     joinBtn.MouseEnter:Connect(function()
-        smoothTween(joinBtn, {BackgroundColor3 = Color3.fromRGB(80, 255, 120)})
+        smoothTween(joinBtn, {BackgroundColor3 = Color3.fromRGB(255, 240, 250)})
     end)
     joinBtn.MouseLeave:Connect(function()
-        smoothTween(joinBtn, {BackgroundColor3 = THEME.AccentGreen})
+        smoothTween(joinBtn, {BackgroundColor3 = joinBtnColor})
     end)
     
-    -- Botão loop
-    local loopBtn = createTextButton(entry, UDim2.new(0, 60, 0, 35), UDim2.new(1, -110, 0, 22.5), "🔄 Loop", Color3.fromRGB(255, 80, 80), 12)
+    -- Botão loop (rosinha mais escuro, com borda preta fina, distanciado)
+    local loopBtnColor = Color3.fromRGB(255, 150, 180) -- Rosinha mais escuro
+    local loopBtn = createTextButton(entry, UDim2.new(0, 60, 0, 32), UDim2.new(1, -80, 0, 28), "Loop", loopBtnColor, 12)
     loopBtn.Name = "LoopBtn"
-    
-    if not isHighValue then
-        loopBtn.Position = UDim2.new(1, -90, 0, 22.5)
-        joinBtn.Position = UDim2.new(1, -160, 0, 22.5)
-    end
+    loopBtn.Font = Enum.Font.GothamBold
+    loopBtn.TextStrokeTransparency = 0
+    loopBtn.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    addStroke(loopBtn, Color3.fromRGB(0, 0, 0), 1.5, 0) -- Borda preta fina
     
     -- Efeito hover no botão loop
     loopBtn.MouseEnter:Connect(function()
-        smoothTween(loopBtn, {BackgroundColor3 = Color3.fromRGB(255, 120, 120)})
+        smoothTween(loopBtn, {BackgroundColor3 = Color3.fromRGB(255, 180, 200)})
     end)
     loopBtn.MouseLeave:Connect(function()
-        smoothTween(loopBtn, {BackgroundColor3 = Color3.fromRGB(255, 80, 80)})
-    end)
-    
-    -- Botão marcar/desmarcar filtro
-    local filterBtn = createTextButton(entry, UDim2.new(0, 30, 0, 30), UDim2.new(1, -35, 0, 8), "★", THEME.ButtonBg, 14)
-    filterBtn.Name = "FilterBtn"
-    filterBtn.Font = Enum.Font.GothamBold
-    
-    -- Atualiza estado do botão filtro
-    local function updateFilterButton()
-        local petName = petData.PetName or petData.Name or ""
-        if CONFIG.MarkedPets[petName] then
-            filterBtn.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
-            filterBtn.Text = "★"
-        else
-            filterBtn.BackgroundColor3 = THEME.ButtonBg
-            filterBtn.Text = "☆"
-        end
-    end
-    
-    updateFilterButton()
-    
-    -- Ação de marcar/desmarcar filtro
-    filterBtn.MouseButton1Click:Connect(function()
-        local petName = petData.PetName or petData.Name or ""
-        if CONFIG.MarkedPets[petName] then
-            CONFIG.MarkedPets[petName] = nil
-        else
-            CONFIG.MarkedPets[petName] = true
-        end
-        saveConfig()
-        updateFilterButton()
-        updatePetsList()
+        smoothTween(loopBtn, {BackgroundColor3 = loopBtnColor})
     end)
     
     -- Ação de entrar
@@ -1193,7 +1234,7 @@ local function createPetEntry(petData, index)
             return
         end
         
-        joinBtn.Text = "⏳ Entrando..."
+        joinBtn.Text = "Entrando..."
         joinBtn.BackgroundColor3 = THEME.TextMuted
         
         task.spawn(function()
@@ -1203,10 +1244,10 @@ local function createPetEntry(petData, index)
             
             if not success then
                 warn("[Pet Finder] Erro ao entrar:", err)
-                joinBtn.Text = "❌ Erro"
+                joinBtn.Text = "Erro"
                 task.wait(1)
-                joinBtn.Text = "▶ Entrar"
-                joinBtn.BackgroundColor3 = THEME.AccentGreen
+                joinBtn.Text = "Entrar"
+                joinBtn.BackgroundColor3 = joinBtnColor
             end
         end)
     end)
@@ -1216,8 +1257,10 @@ local function createPetEntry(petData, index)
     loopBtn.MouseButton1Click:Connect(function()
         if isLooping then
             isLooping = false
-            loopBtn.Text = "🔄 Loop"
-            loopBtn.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
+            loopBtn.Text = "Loop"
+            loopBtn.BackgroundColor3 = loopBtnColor
+            -- Mantém borda preta
+            addStroke(loopBtn, Color3.fromRGB(0, 0, 0), 1.5, 0)
             return
         end
         
@@ -1239,15 +1282,17 @@ local function createPetEntry(petData, index)
         end
         
         isLooping = true
-        loopBtn.Text = "⏸ Parar"
+        loopBtn.Text = "Parar"
         loopBtn.BackgroundColor3 = THEME.TextMuted
+        -- Mantém borda preta
+        addStroke(loopBtn, Color3.fromRGB(0, 0, 0), 1.5, 0)
         
         task.spawn(function()
             local tries = 0
             
             while isLooping and tries < maxTries do
                 tries = tries + 1
-                loopBtn.Text = string.format("🔄 %d/%d", tries, maxTries)
+                loopBtn.Text = string.format("%d/%d", tries, maxTries)
                 
                 pcall(function()
                     TeleportService:TeleportToPlaceInstance(PlaceId, jobId, LocalPlayer)
@@ -1257,13 +1302,15 @@ local function createPetEntry(petData, index)
             end
             
             isLooping = false
-            loopBtn.Text = "🔄 Loop"
-            loopBtn.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
+            loopBtn.Text = "Loop"
+            loopBtn.BackgroundColor3 = loopBtnColor
+            -- Mantém borda preta
+            addStroke(loopBtn, Color3.fromRGB(0, 0, 0), 1.5, 0)
             
             if tries >= maxTries then
-                loopBtn.Text = "✓ Concluído"
+                loopBtn.Text = "Concluído"
                 task.wait(1)
-                loopBtn.Text = "🔄 Loop"
+                loopBtn.Text = "Loop"
             end
         end)
     end)
@@ -1306,8 +1353,9 @@ updatePetsList = function()
     -- Converte petsData para array
     local petsArray = {}
     for _, petData in pairs(petsData) do
-        -- Aplica filtro de pesquisa
-        if passesSearch(petData, CONFIG.SearchQuery) then
+        local petName = petData.PetName or petData.Name or ""
+        -- Aplica filtro de raridade e pesquisa
+        if passesFilter(petName, petData) and passesSearch(petData, CONFIG.SearchQuery) then
             table.insert(petsArray, petData)
         end
     end
@@ -1340,10 +1388,6 @@ end
 -- EVENTOS
 -- ============================================================================
 
-refreshBtn.MouseButton1Click:Connect(function()
-    updatePetsList()
-end)
-
 clearBtn.MouseButton1Click:Connect(function()
     petsData = {}
     updatePetsList()
@@ -1368,7 +1412,7 @@ sortDropdown.MouseButton1Click:Connect(function()
         Time = "Tempo ▼"
     }
     
-    sortDropdown.Text = labels[CONFIG.SortBy] or "Ordenar ▼"
+    sortDropdown.Text = labels[CONFIG.SortBy] or "Tempo ▼"
     updatePetsList()
 end)
 
@@ -1457,6 +1501,7 @@ local function processBrainrots(brainrots)
                 PlotName = brainrot.PlotName,
                 PodiumID = brainrot.PodiumID,
                 AnimalIndex = brainrot.AnimalIndex,
+                Players = brainrot.Players or brainrot.PlayerCount or brainrot.players,
                 timestamp = tick()
             }
             
@@ -1591,3 +1636,10 @@ end)
 
 -- Atualiza lista inicial
 updatePetsList()
+
+task.spawn(function()
+    while true do
+        game:GetService('GuiService'):ClearError()
+        task.wait()
+    end
+end)
