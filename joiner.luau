@@ -1280,14 +1280,16 @@ local function createPetEntry(petData, index)
     -- Atualiza botão inicialmente
     updateLoopButton()
     
-    -- Atualiza botão periodicamente (sempre consulta activeLoops)
+    -- Atualiza botão periodicamente (sempre consulta activeLoops) - otimizado
     task.spawn(function()
         while entry.Parent do
             local currentLoopData = activeLoops[jobId]
             if currentLoopData and currentLoopData.isLooping then
                 updateLoopButton()
+                task.wait(0.2) -- Reduzido para 0.2s (menos frequente)
+            else
+                task.wait(0.5) -- Se não está em loop, verifica menos frequentemente
             end
-            task.wait(0.1) -- Atualiza a cada 0.1s
         end
     end)
     
@@ -1492,9 +1494,17 @@ task.spawn(function()
     end
 end)
 
--- Atualiza scroll quando lista muda
+-- Atualiza scroll quando lista muda (com debounce para evitar ping alto)
+local scrollUpdateDebounce = false
 listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    scrollFrame.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 10)
+    if scrollUpdateDebounce then return end
+    scrollUpdateDebounce = true
+    
+    task.spawn(function()
+        task.wait(0.05) -- Debounce de 0.05s
+        scrollFrame.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 10)
+        scrollUpdateDebounce = false
+    end)
 end)
 
 -- ============================================================================
