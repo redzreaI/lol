@@ -1,4 +1,3 @@
-
 -- ============================================================================
 -- ADMIN PANEL MODULE
 -- Este mÃ³dulo contÃ©m toda a lÃ³gica do Admin Panel
@@ -52,8 +51,8 @@ end
 local generateUUID = _G.generateUUID or function()
     return variaveis.HttpService:GenerateGUID(false):gsub("-", "")
 end
-local saveConfig = _G.saveConfig or function() end
-local savePositions = _G.savePositions or function() end
+local saveConfig = (type(_G.saveConfig) == "function" and _G.saveConfig) or function() end
+local savePositions = (type(_G.savePositions) == "function" and _G.savePositions) or function() end
 local PlaceId = variaveis.PlaceId
 local Players = variaveis.Players
 local Workspace = variaveis.Workspace
@@ -130,6 +129,10 @@ local function addPinkGradient(parent)
 end
 
 local function createFrame(parent, size, position, bgColor, bgTransparency)
+    if not parent then
+        warn("[Admin Panel] createFrame: parent é nil")
+        return nil
+    end
     local frame = Instance.new("Frame")
     frame.Size = size
     frame.Position = position
@@ -140,6 +143,10 @@ local function createFrame(parent, size, position, bgColor, bgTransparency)
 end
 
 local function createTextLabel(parent, size, position, text, textSize, textColor)
+    if not parent then
+        warn("[Admin Panel] createTextLabel: parent é nil")
+        return nil
+    end
     local label = Instance.new("TextLabel")
     label.Size = size
     label.Position = position
@@ -155,6 +162,11 @@ local function createTextLabel(parent, size, position, text, textSize, textColor
 end
 
 local function createTitleWithIcon(parent, size, position, text, textSize, textColor, iconSize)
+    if not parent then
+        warn("[Admin Panel] createTitleWithIcon: parent é nil")
+        return nil, nil, nil
+    end
+    
     iconSize = iconSize or 20
     local container = Instance.new("Frame")
     container.Size = size
@@ -167,7 +179,7 @@ local function createTitleWithIcon(parent, size, position, text, textSize, textC
     icon.Size = UDim2.new(0, iconSize, 0, iconSize)
     icon.Position = UDim2.new(0, 0, 0.5, -iconSize/2)
     icon.BackgroundTransparency = 1
-    icon.Text = "ðŸ""
+    icon.Text = "ðŸ"
     icon.Font = Enum.Font.Gotham
     icon.TextSize = iconSize - 2
     icon.TextColor3 = THEME.AccentRed
@@ -191,6 +203,10 @@ local function createTitleWithIcon(parent, size, position, text, textSize, textC
 end
 
 local function createTextButton(parent, size, position, text, bgColor, textSize)
+    if not parent then
+        warn("[Admin Panel] createTextButton: parent é nil")
+        return nil
+    end
     local button = Instance.new("TextButton")
     button.Size = size
     button.Position = position
@@ -1735,22 +1751,28 @@ local playerGui = variaveis.LocalPlayer:WaitForChild("PlayerGui", 15)
     end
     
     local function refreshPlayerList()
-        for _, child in ipairs(playerListFrame:GetChildren()) do
-            if child:IsA("Frame") and child.Name:find("Player_") then
-                child:Destroy()
-            end
-        end
+        if not playerListFrame or not playerListFrame.Parent then return end
         
-        playerFrames = {}
-        
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= variaveis.LocalPlayer then
-                if not playerCommandPools[player] then
-                    resetPlayerPool(player)
+        pcall(function()
+            for _, child in ipairs(playerListFrame:GetChildren()) do
+                if child:IsA("Frame") and child.Name:find("Player_") then
+                    child:Destroy()
                 end
-                createPlayerButton(player)
             end
-        end
+            
+            playerFrames = {}
+            
+            if Players and Players.GetPlayers then
+                for _, player in ipairs(Players:GetPlayers()) do
+                    if player ~= variaveis.LocalPlayer then
+                        if not playerCommandPools[player] then
+                            resetPlayerPool(player)
+                        end
+                        createPlayerButton(player)
+                    end
+                end
+            end
+        end)
     end
     
     variaveis.Players.PlayerAdded:Connect(function()
@@ -1927,7 +1949,9 @@ local playerGui = variaveis.LocalPlayer:WaitForChild("PlayerGui", 15)
                                 YScale = frame.Position.Y.Scale,
                                 YOffset = frame.Position.Y.Offset
                             }
-                            savePositions()
+                            if type(savePositions) == "function" then
+                                savePositions()
+                            end
                         end)
                     end
                 end)
@@ -2161,7 +2185,7 @@ local playerGui = variaveis.LocalPlayer:WaitForChild("PlayerGui", 15)
     
     local function loadPriorities()
         pcall(function()
-            if isfile(_G.oNineShared.priorityFile) then
+            if isfile and readfile and isfile(_G.oNineShared.priorityFile) then
                 local data = readfile(_G.oNineShared.priorityFile)
                 _G.oNineShared.stealPriority = variaveis.HttpService:JSONDecode(data) or {}
             end
@@ -2170,8 +2194,10 @@ local playerGui = variaveis.LocalPlayer:WaitForChild("PlayerGui", 15)
     
     local function savePriorities()
         pcall(function()
-            local data = variaveis.HttpService:JSONEncode(_G.oNineShared.stealPriority)
-            writefile(_G.oNineShared.priorityFile, data)
+            if writefile then
+                local data = variaveis.HttpService:JSONEncode(_G.oNineShared.stealPriority)
+                writefile(_G.oNineShared.priorityFile, data)
+            end
         end)
     end
     
@@ -2483,4 +2509,8 @@ local playerGui = variaveis.LocalPlayer:WaitForChild("PlayerGui", 15)
     
     makeDraggable(priorityConfigGui, "priorityConfigGui")
     
-    refreshPlayerList()
+    -- Inicializa lista de players após um pequeno delay para garantir que tudo está carregado
+    task.spawn(function()
+        task.wait(0.5)
+        refreshPlayerList()
+    end)
