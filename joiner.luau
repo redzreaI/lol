@@ -1,8 +1,3 @@
-getgenv().PetFinder = {
-    ["Key"] = "3d343b93fd33000f9a7d0039071ca4c4",
-    ["WS URL"] = "wss://ws-api.bloxemporium.com.br",
-}
-
 repeat task.wait() until game:IsLoaded()
 
 local Players = game:GetService("Players")
