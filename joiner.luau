@@ -1559,7 +1559,7 @@ local isAuthenticated = false
 
 -- Função para tocar som de notificação
 local function playNotificationSound()
-    local soundId = 102483636290461
+    local soundId = 17504881745
     local sound = Instance.new("Sound")
     sound.SoundId = "rbxassetid://" .. soundId
     sound.Volume = 0.5
